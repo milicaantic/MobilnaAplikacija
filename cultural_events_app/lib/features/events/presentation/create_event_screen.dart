@@ -114,109 +114,151 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen> {
   @override
   Widget build(BuildContext context) {
     final categoriesAsync = ref.watch(categoriesStreamProvider);
+    final role = ref.watch(currentUserProvider).value?.role;
 
     return Scaffold(
       appBar: AppBar(title: const Text('Create Event')),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24.0),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              TextFormField(
-                controller: _titleController,
-                decoration: const InputDecoration(labelText: 'Event Title'),
-                validator: (val) =>
-                    val == null || val.isEmpty ? 'Required' : null,
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _descriptionController,
-                decoration: const InputDecoration(labelText: 'Description'),
-                maxLines: 3,
-                validator: (val) =>
-                    val == null || val.isEmpty ? 'Required' : null,
-              ),
-              const SizedBox(height: 16),
-              categoriesAsync.when(
-                data: (categories) => DropdownButtonFormField<String>(
-                  value: _selectedCategoryId,
-                  hint: const Text('Select Category'),
-                  items: categories
-                      .map(
-                        (c) => DropdownMenuItem(
-                          value: c.categoryId,
-                          child: Text(c.name),
+      body: SafeArea(
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 680),
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Card(
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Text(
+                          role == UserRole.admin
+                              ? 'Admin events are published immediately.'
+                              : 'New events are submitted for admin approval.',
+                          style: Theme.of(context).textTheme.bodyMedium,
                         ),
-                      )
-                      .toList(),
-                  onChanged: (val) => setState(() => _selectedCategoryId = val),
-                  validator: (val) => val == null ? 'Required' : null,
-                ),
-                loading: () => const LinearProgressIndicator(),
-                error: (_, __) => const Text('Error loading categories'),
-              ),
-              const SizedBox(height: 16),
-              ListTile(
-                title: const Text('Event Date & Time'),
-                subtitle: Text(_selectedDate.toString()),
-                trailing: const Icon(Icons.calendar_today),
-                onTap: () async {
-                  final date = await showDatePicker(
-                    context: context,
-                    initialDate: _selectedDate,
-                    firstDate: DateTime.now(),
-                    lastDate: DateTime.now().add(const Duration(days: 365)),
-                  );
-                  if (date != null) {
-                    final time = await showTimePicker(
-                      context: context,
-                      initialTime: TimeOfDay.fromDateTime(_selectedDate),
-                    );
-                    if (time != null) {
-                      setState(() {
-                        _selectedDate = DateTime(
-                          date.year,
-                          date.month,
-                          date.day,
-                          time.hour,
-                          time.minute,
-                        );
-                      });
-                    }
-                  }
-                },
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _locationController,
-                decoration: const InputDecoration(labelText: 'Location Name'),
-                validator: (val) =>
-                    val == null || val.isEmpty ? 'Required' : null,
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _imageUrlController,
-                decoration: const InputDecoration(
-                  labelText: 'Image URL (optional)',
-                  hintText: 'https://example.com/image.jpg',
-                ),
-                keyboardType: TextInputType.url,
-              ),
-              const SizedBox(height: 48),
-              ElevatedButton(
-                onPressed: _isLoading ? null : _submit,
-                child: _isLoading
-                    ? const CircularProgressIndicator()
-                    : Text(
-                        ref.read(currentUserProvider).value?.role ==
-                                UserRole.admin
-                            ? 'Create Event'
-                            : 'Submit for Approval',
                       ),
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: _titleController,
+                      decoration: const InputDecoration(
+                        labelText: 'Event Title',
+                        prefixIcon: Icon(Icons.title_rounded),
+                      ),
+                      validator: (val) =>
+                          val == null || val.isEmpty ? 'Required' : null,
+                    ),
+                    const SizedBox(height: 14),
+                    TextFormField(
+                      controller: _descriptionController,
+                      decoration: const InputDecoration(
+                        labelText: 'Description',
+                        prefixIcon: Icon(Icons.notes_rounded),
+                      ),
+                      maxLines: 4,
+                      validator: (val) =>
+                          val == null || val.isEmpty ? 'Required' : null,
+                    ),
+                    const SizedBox(height: 14),
+                    categoriesAsync.when(
+                      data: (categories) => DropdownButtonFormField<String>(
+                        value: _selectedCategoryId,
+                        hint: const Text('Select Category'),
+                        items: categories
+                            .map(
+                              (c) => DropdownMenuItem(
+                                value: c.categoryId,
+                                child: Text(c.name),
+                              ),
+                            )
+                            .toList(),
+                        onChanged: (val) =>
+                            setState(() => _selectedCategoryId = val),
+                        validator: (val) => val == null ? 'Required' : null,
+                      ),
+                      loading: () => const LinearProgressIndicator(),
+                      error: (_, __) => const Text('Error loading categories'),
+                    ),
+                    const SizedBox(height: 14),
+                    Card(
+                      child: ListTile(
+                        leading: const Icon(Icons.schedule_rounded),
+                        title: const Text('Event Date & Time'),
+                        subtitle: Text(_selectedDate.toString().split('.')[0]),
+                        trailing: const Icon(Icons.chevron_right_rounded),
+                        onTap: () async {
+                          final date = await showDatePicker(
+                            context: context,
+                            initialDate: _selectedDate,
+                            firstDate: DateTime.now(),
+                            lastDate: DateTime.now().add(
+                              const Duration(days: 365),
+                            ),
+                          );
+                          if (date != null) {
+                            final time = await showTimePicker(
+                              context: context,
+                              initialTime: TimeOfDay.fromDateTime(_selectedDate),
+                            );
+                            if (time != null) {
+                              setState(() {
+                                _selectedDate = DateTime(
+                                  date.year,
+                                  date.month,
+                                  date.day,
+                                  time.hour,
+                                  time.minute,
+                                );
+                              });
+                            }
+                          }
+                        },
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    TextFormField(
+                      controller: _locationController,
+                      decoration: const InputDecoration(
+                        labelText: 'Location Name',
+                        prefixIcon: Icon(Icons.location_on_outlined),
+                      ),
+                      validator: (val) =>
+                          val == null || val.isEmpty ? 'Required' : null,
+                    ),
+                    const SizedBox(height: 14),
+                    TextFormField(
+                      controller: _imageUrlController,
+                      decoration: const InputDecoration(
+                        labelText: 'Image URL (optional)',
+                        hintText: 'https://example.com/image.jpg',
+                        prefixIcon: Icon(Icons.image_outlined),
+                      ),
+                      keyboardType: TextInputType.url,
+                    ),
+                    const SizedBox(height: 24),
+                    ElevatedButton.icon(
+                      onPressed: _isLoading ? null : _submit,
+                      icon: _isLoading
+                          ? const SizedBox.shrink()
+                          : const Icon(Icons.send_rounded),
+                      label: _isLoading
+                          ? const SizedBox(
+                              height: 18,
+                              width: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : Text(
+                              role == UserRole.admin
+                                  ? 'Create Event'
+                                  : 'Submit for Approval',
+                            ),
+                    ),
+                  ],
+                ),
               ),
-            ],
+            ),
           ),
         ),
       ),

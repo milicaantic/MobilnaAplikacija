@@ -5,6 +5,8 @@ import '../data/event_repository.dart';
 import '../domain/event_status.dart';
 import '../../auth/domain/user_role.dart';
 import '../../auth/data/user_repository.dart';
+import '../../categories/data/category_repository.dart';
+import '../../categories/domain/category.dart';
 
 class AdminDashboardScreen extends ConsumerWidget {
   const AdminDashboardScreen({super.key});
@@ -16,21 +18,12 @@ class AdminDashboardScreen extends ConsumerWidget {
       child: Scaffold(
         appBar: AppBar(
           scrolledUnderElevation: 0.0,
-          title: const Text(
-            'Admin Dashboard',
-            style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: -0.5),
-          ),
+          title: const Text('Admin Dashboard'),
           bottom: TabBar(
             isScrollable: false,
-            indicatorSize: TabBarIndicatorSize.label,
-            labelStyle: const TextStyle(
-              fontWeight: FontWeight.bold,
-              fontSize: 13,
-            ),
-            unselectedLabelStyle: const TextStyle(
-              fontWeight: FontWeight.w500,
-              fontSize: 13,
-            ),
+            indicatorSize: TabBarIndicatorSize.tab,
+            labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+            unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w500, fontSize: 13),
             indicatorColor: Theme.of(context).colorScheme.primary,
             tabs: const [
               Tab(icon: Icon(Icons.pending_actions_rounded), text: 'Approvals'),
@@ -60,52 +53,48 @@ class _UserManagementView extends ConsumerWidget {
 
     return usersAsync.when(
       data: (users) => ListView.separated(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(16, 14, 16, 24),
         itemCount: users.length,
-        separatorBuilder: (_, __) => const SizedBox(height: 12),
+        separatorBuilder: (_, __) => const SizedBox(height: 10),
         itemBuilder: (context, index) {
           final user = users[index];
-          return Container(
-            decoration: BoxDecoration(
-              color: Theme.of(
-                context,
-              ).colorScheme.surfaceVariant.withOpacity(0.2),
-              borderRadius: BorderRadius.circular(20),
+          return Card(
+            color: Theme.of(context).colorScheme.secondaryContainer.withValues(
+              alpha: 0.22,
             ),
             child: ListTile(
               contentPadding: const EdgeInsets.symmetric(
-                horizontal: 16,
+                horizontal: 14,
                 vertical: 8,
               ),
               leading: CircleAvatar(
-                radius: 25,
+                radius: 23,
                 backgroundImage: user.photoUrl != null
                     ? NetworkImage(user.photoUrl!)
                     : null,
-                child: user.photoUrl == null ? const Icon(Icons.person) : null,
+                child: user.photoUrl == null
+                    ? const Icon(Icons.person_outline)
+                    : null,
               ),
               title: Text(
                 user.name,
-                style: const TextStyle(fontWeight: FontWeight.bold),
+                style: const TextStyle(fontWeight: FontWeight.w700),
               ),
               subtitle: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    user.email,
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
-                  const SizedBox(height: 4),
+                  Text(user.email, style: Theme.of(context).textTheme.bodySmall),
+                  const SizedBox(height: 5),
                   Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 8,
                       vertical: 2,
                     ),
                     decoration: BoxDecoration(
-                      color: _getRoleColor(user.role).withOpacity(0.1),
+                      color: _getRoleColor(user.role).withValues(alpha: 0.14),
                       borderRadius: BorderRadius.circular(8),
                       border: Border.all(
-                        color: _getRoleColor(user.role).withOpacity(0.3),
+                        color: _getRoleColor(user.role).withValues(alpha: 0.4),
                       ),
                     ),
                     child: Text(
@@ -127,9 +116,7 @@ class _UserManagementView extends ConsumerWidget {
                       .updateUserRole(user.uid, role);
                   if (context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('Updated ${user.name} to ${role.name}'),
-                      ),
+                      SnackBar(content: Text('Updated ${user.name} to ${role.name}')),
                     );
                   }
                 },
@@ -188,57 +175,47 @@ class _ApprovalQueue extends ConsumerWidget {
         }
 
         return ListView.separated(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.fromLTRB(16, 14, 16, 24),
           itemCount: events.length,
-          separatorBuilder: (_, __) => const SizedBox(height: 12),
+          separatorBuilder: (_, __) => const SizedBox(height: 10),
           itemBuilder: (context, index) {
             final event = events[index];
-            return Container(
-              decoration: BoxDecoration(
-                color: Theme.of(
-                  context,
-                ).colorScheme.surfaceVariant.withOpacity(0.2),
-                borderRadius: BorderRadius.circular(20),
+            return Card(
+              color: Theme.of(context).colorScheme.primaryContainer.withValues(
+                alpha: 0.18,
               ),
               child: ListTile(
                 contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 16,
+                  horizontal: 14,
                   vertical: 8,
                 ),
                 title: Text(
                   event.title,
-                  style: const TextStyle(fontWeight: FontWeight.bold),
+                  style: const TextStyle(fontWeight: FontWeight.w700),
                 ),
                 subtitle: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      'by ${event.creatorName}',
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
+                    Text('by ${event.creatorName}', style: Theme.of(context).textTheme.bodySmall),
                     const SizedBox(height: 4),
                     Row(
                       children: [
                         Icon(
                           Icons.calendar_today_rounded,
                           size: 12,
-                          color: Colors.grey[500],
+                          color: Theme.of(context).colorScheme.outline,
                         ),
                         const SizedBox(width: 4),
                         Text(
                           _formatDate(event.time),
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: Colors.grey[600],
-                          ),
+                          style: Theme.of(context).textTheme.bodySmall,
                         ),
                       ],
                     ),
                   ],
                 ),
                 trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14),
-                onTap: () =>
-                    context.push('/events/${event.eventId}', extra: event),
+                onTap: () => context.push('/events/${event.eventId}', extra: event),
               ),
             );
           },
@@ -257,36 +234,242 @@ class _ApprovalQueue extends ConsumerWidget {
 Color _getRoleColor(UserRole role) {
   switch (role) {
     case UserRole.admin:
-      return Colors.purple;
+      return const Color(0xFFB26A00);
     case UserRole.user:
-      return Colors.blue;
+      return const Color(0xFF1A7F72);
     case UserRole.guest:
-      return Colors.grey;
+      return const Color(0xFF637381);
   }
 }
 
-class _CategoryQuickAccess extends StatelessWidget {
+class _CategoryQuickAccess extends ConsumerStatefulWidget {
   const _CategoryQuickAccess();
 
   @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(Icons.category, size: 64, color: Colors.blueGrey),
-          const SizedBox(height: 16),
-          const Text(
-            'Manage Event Categories',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+  ConsumerState<_CategoryQuickAccess> createState() =>
+      _CategoryQuickAccessState();
+}
+
+class _CategoryQuickAccessState extends ConsumerState<_CategoryQuickAccess> {
+  final _nameController = TextEditingController();
+  final _descriptionController = TextEditingController();
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _descriptionController.dispose();
+    super.dispose();
+  }
+
+  void _addCategory() {
+    final name = _nameController.text.trim();
+    final description = _descriptionController.text.trim();
+    if (name.isEmpty || description.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Enter category name and description.')),
+      );
+      return;
+    }
+
+    ref.read(categoryRepositoryProvider).addCategory(name, description);
+    _nameController.clear();
+    _descriptionController.clear();
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Category created.')),
+    );
+  }
+
+  void _showCategoryDialog({
+    required BuildContext context,
+    required Category category,
+  }) {
+    final nameController = TextEditingController(text: category.name);
+    final descController = TextEditingController(text: category.description);
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Edit Category'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: nameController,
+              decoration: const InputDecoration(labelText: 'Name'),
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              controller: descController,
+              decoration: const InputDecoration(labelText: 'Description'),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
           ),
-          const SizedBox(height: 24),
           ElevatedButton(
-            onPressed: () => context.push('/categories'),
-            child: const Text('Open Category Manager'),
+            onPressed: () {
+              ref
+                  .read(categoryRepositoryProvider)
+                  .updateCategory(
+                    Category(
+                      categoryId: category.categoryId,
+                      name: nameController.text.trim(),
+                      description: descController.text.trim(),
+                      isActive: category.isActive,
+                    ),
+                  );
+              Navigator.pop(context);
+            },
+            child: const Text('Save'),
           ),
         ],
       ),
+    );
+  }
+
+  void _confirmDelete(BuildContext context, String categoryId) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Category?'),
+        content: const Text('This action cannot be undone.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () {
+              ref.read(categoryRepositoryProvider).deleteCategory(categoryId);
+              Navigator.pop(context);
+            },
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final categoriesAsync = ref.watch(categoriesStreamProvider);
+
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+      children: [
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  'Create Category',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: _nameController,
+                  decoration: const InputDecoration(
+                    labelText: 'Name',
+                    prefixIcon: Icon(Icons.label_outline),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                TextField(
+                  controller: _descriptionController,
+                  decoration: const InputDecoration(
+                    labelText: 'Description',
+                    prefixIcon: Icon(Icons.description_outlined),
+                  ),
+                ),
+                const SizedBox(height: 14),
+                ElevatedButton.icon(
+                  onPressed: _addCategory,
+                  icon: const Icon(Icons.add),
+                  label: const Text('Add Category'),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
+        Text(
+          'Existing Categories',
+          style: Theme.of(
+            context,
+          ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+        ),
+        const SizedBox(height: 10),
+        categoriesAsync.when(
+          data: (categories) {
+            if (categories.isEmpty) {
+              return Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(18),
+                  child: Text(
+                    'No categories yet.',
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
+                ),
+              );
+            }
+
+            return Column(
+              children: [
+                for (final category in categories)
+                  Card(
+                    child: ListTile(
+                      title: Text(
+                        category.name,
+                        style: const TextStyle(fontWeight: FontWeight.w700),
+                      ),
+                      subtitle: Padding(
+                        padding: const EdgeInsets.only(top: 4),
+                        child: Text(category.description),
+                      ),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(
+                            icon: const Icon(Icons.edit_outlined),
+                            onPressed: () => _showCategoryDialog(
+                              context: context,
+                              category: category,
+                            ),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.delete_outline),
+                            onPressed: () =>
+                                _confirmDelete(context, category.categoryId),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+              ],
+            );
+          },
+          loading: () => const Center(
+            child: Padding(
+              padding: EdgeInsets.all(20),
+              child: CircularProgressIndicator(),
+            ),
+          ),
+          error: (err, stack) => Padding(
+            padding: const EdgeInsets.all(10),
+            child: Text('Error: $err'),
+          ),
+        ),
+      ],
     );
   }
 }

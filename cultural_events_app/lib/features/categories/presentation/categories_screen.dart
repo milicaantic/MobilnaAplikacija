@@ -17,38 +17,69 @@ class CategoriesScreen extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(title: const Text('Event Categories')),
       body: categoriesAsync.when(
-        data: (categories) => ListView.builder(
-          itemCount: categories.length,
-          itemBuilder: (context, index) {
-            final category = categories[index];
-            return ListTile(
-              title: Text(category.name),
-              subtitle: Text(category.description),
-              trailing: isAdmin
-                  ? Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        IconButton(
-                          icon: const Icon(Icons.edit),
-                          onPressed: () => _showCategoryDialog(
-                            context,
-                            ref,
-                            category: category,
-                          ),
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.delete),
-                          onPressed: () =>
-                              _confirmDelete(context, ref, category.categoryId),
-                        ),
-                      ],
-                    )
-                  : category.isActive
-                  ? null
-                  : const Icon(Icons.block, color: Colors.grey),
-            );
-          },
-        ),
+        data: (categories) => categories.isEmpty
+            ? Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.category_outlined,
+                      size: 58,
+                      color: Theme.of(context).colorScheme.outline,
+                    ),
+                    const SizedBox(height: 10),
+                    const Text('No categories found'),
+                  ],
+                ),
+              )
+            : ListView.separated(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+                itemCount: categories.length,
+                separatorBuilder: (_, __) => const SizedBox(height: 10),
+                itemBuilder: (context, index) {
+                  final category = categories[index];
+                  return Card(
+                    child: ListTile(
+                      title: Text(
+                        category.name,
+                        style: const TextStyle(fontWeight: FontWeight.w700),
+                      ),
+                      subtitle: Padding(
+                        padding: const EdgeInsets.only(top: 4),
+                        child: Text(category.description),
+                      ),
+                      trailing: isAdmin
+                          ? Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                IconButton(
+                                  icon: const Icon(Icons.edit_outlined),
+                                  onPressed: () => _showCategoryDialog(
+                                    context,
+                                    ref,
+                                    category: category,
+                                  ),
+                                ),
+                                IconButton(
+                                  icon: const Icon(Icons.delete_outline),
+                                  onPressed: () => _confirmDelete(
+                                    context,
+                                    ref,
+                                    category.categoryId,
+                                  ),
+                                ),
+                              ],
+                            )
+                          : category.isActive
+                          ? null
+                          : Icon(
+                              Icons.block,
+                              color: Theme.of(context).colorScheme.outline,
+                            ),
+                    ),
+                  );
+                },
+              ),
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (err, stack) => Center(child: Text('Error: $err')),
       ),

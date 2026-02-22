@@ -26,41 +26,69 @@ class MyRegistrationsScreen extends ConsumerWidget {
       body: registrationsAsync.when(
         data: (registrations) {
           if (registrations.isEmpty) {
-            return const Center(
+            return Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.event_available, size: 64, color: Colors.grey),
-                  SizedBox(height: 16),
+                  Icon(
+                    Icons.event_available_outlined,
+                    size: 64,
+                    color: Theme.of(context).colorScheme.outline,
+                  ),
+                  const SizedBox(height: 16),
                   Text(
                     'No registrations yet',
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
-                  SizedBox(height: 8),
-                  Text(
+                  const SizedBox(height: 8),
+                  const Text(
                     'Explore events and sign up to see them here!',
-                    style: TextStyle(color: Colors.grey),
                   ),
                 ],
               ),
             );
           }
 
-          return ListView.builder(
+          return ListView.separated(
             itemCount: registrations.length,
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 24),
+            separatorBuilder: (_, __) => const SizedBox(height: 10),
             itemBuilder: (context, index) {
               final reg = registrations[index];
               return Card(
                 child: ListTile(
-                  title: Text(reg.eventTitle ?? 'Unknown Event'),
-                  subtitle: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(reg.eventTime?.toString().split('.')[0] ?? ''),
-                      Text(reg.locationName ?? ''),
-                    ],
+                  leading: Container(
+                    width: 42,
+                    height: 42,
+                    decoration: BoxDecoration(
+                      color: Theme.of(context)
+                          .colorScheme
+                          .secondaryContainer
+                          .withValues(alpha: 0.7),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Icon(
+                      Icons.confirmation_num_outlined,
+                      color: Theme.of(context).colorScheme.onSecondaryContainer,
+                    ),
                   ),
+                  title: Text(
+                    reg.eventTitle ?? 'Unknown Event',
+                    style: const TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                  subtitle: Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(reg.eventTime?.toString().split('.')[0] ?? ''),
+                        Text(reg.locationName ?? ''),
+                      ],
+                    ),
+                  ),
+                  trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14),
                   onTap: () => context.push('/events/${reg.eventId}'),
                 ),
               );

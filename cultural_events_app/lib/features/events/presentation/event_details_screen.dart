@@ -44,14 +44,46 @@ class EventDetailsScreen extends ConsumerWidget {
       body: CustomScrollView(
         slivers: [
           SliverAppBar(
-            expandedHeight: 300,
+            expandedHeight: 320,
             pinned: true,
+            stretch: true,
+            leading: context.canPop()
+                ? Padding(
+                    padding: const EdgeInsets.all(8),
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.45),
+                        shape: BoxShape.circle,
+                      ),
+                      child: IconButton(
+                        icon: const Icon(Icons.arrow_back_ios_new_rounded),
+                        color: Colors.white,
+                        onPressed: () => context.pop(),
+                      ),
+                    ),
+                  )
+                : null,
             flexibleSpace: FlexibleSpaceBar(
-              title: Text(
-                event.title,
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  shadows: [Shadow(blurRadius: 10, color: Colors.black54)],
+              titlePadding: const EdgeInsetsDirectional.only(
+                start: 68,
+                end: 18,
+                bottom: 24,
+              ),
+              title: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.46),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  event.title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 22,
+                    color: Colors.white,
+                  ),
                 ),
               ),
               background: Hero(
@@ -95,7 +127,7 @@ class EventDetailsScreen extends ConsumerWidget {
           ),
           SliverToBoxAdapter(
             child: Padding(
-              padding: const EdgeInsets.all(24.0),
+              padding: const EdgeInsets.fromLTRB(18, 16, 18, 24),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -137,7 +169,9 @@ class EventDetailsScreen extends ConsumerWidget {
                               style: IconButton.styleFrom(
                                 backgroundColor: Colors.green,
                               ),
+                              tooltip: 'Approve event',
                             ),
+                            const SizedBox(width: 8),
                             IconButton.filled(
                               icon: const Icon(Icons.close),
                               onPressed: () => _showRejectDialog(
@@ -148,36 +182,21 @@ class EventDetailsScreen extends ConsumerWidget {
                               style: IconButton.styleFrom(
                                 backgroundColor: Colors.red,
                               ),
+                              tooltip: 'Reject event',
                             ),
                           ],
                         ),
                     ],
                   ),
                   const SizedBox(height: 24),
-                  _EventInfoSection(event: event),
-                  const SizedBox(height: 32),
+                  _EventOverviewSection(event: event),
+                  const SizedBox(height: 20),
+                  _WeatherInfo(location: event.location),
+                  const SizedBox(height: 28),
                   _buildInteractionButtons(context, ref, event, user),
                   const SizedBox(height: 32),
-                  Text(
-                    'Description',
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    event.description,
-                    style: TextStyle(
-                      fontSize: 16,
-                      height: 1.5,
-                      color: Colors.grey[800],
-                    ),
-                  ),
-                  const SizedBox(height: 32),
-                  _WeatherInfo(location: event.location),
-                  const SizedBox(height: 32),
                   _CommentSection(eventId: eventId),
-                  const SizedBox(height: 64),
+                  const SizedBox(height: 54),
                 ],
               ),
             ),
@@ -194,19 +213,29 @@ class EventDetailsScreen extends ConsumerWidget {
     AppUser? user,
   ) {
     if (user == null) {
-      return Center(
-        child: Column(
-          children: [
-            const Text(
-              'Sign in to add ratings, register and comment on this event.',
-              style: TextStyle(color: Colors.grey),
-            ),
-            const SizedBox(height: 8),
-            ElevatedButton(
-              onPressed: () => context.push('/login'),
-              child: const Text('Login / Register'),
-            ),
-          ],
+      return Card(
+        color: Theme.of(context).colorScheme.secondaryContainer.withValues(
+          alpha: 0.45,
+        ),
+        margin: EdgeInsets.zero,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+        child: Padding(
+          padding: const EdgeInsets.all(18),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                'Sign in to add ratings, register and comment on this event.',
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+              const SizedBox(height: 12),
+              ElevatedButton.icon(
+                onPressed: () => context.push('/login'),
+                icon: const Icon(Icons.login_outlined),
+                label: const Text('Login / Register'),
+              ),
+            ],
+          ),
         ),
       );
     }
@@ -219,119 +248,153 @@ class EventDetailsScreen extends ConsumerWidget {
       userEventRatingStreamProvider(event.eventId, user.uid),
     );
 
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.2),
-        borderRadius: BorderRadius.circular(24),
-      ),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    ref
-                        .watch(eventRatingStatsStreamProvider(event.eventId))
-                        .when(
-                          data: (stats) => Row(
-                            children: [
-                              const Icon(
-                                Icons.star_rounded,
-                                color: Colors.amber,
-                                size: 32,
-                              ),
-                              const SizedBox(width: 8),
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Card(
+            margin: EdgeInsets.zero,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(22),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(18),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Rating',
+                          style: Theme.of(context).textTheme.titleMedium
+                              ?.copyWith(fontWeight: FontWeight.w700),
+                        ),
+                        const SizedBox(height: 10),
+                        ref
+                            .watch(eventRatingStatsStreamProvider(event.eventId))
+                            .when(
+                              data: (stats) => Row(
                                 children: [
-                                  Text(
-                                    stats.average.toStringAsFixed(1),
-                                    style: const TextStyle(
-                                      fontSize: 24,
-                                      fontWeight: FontWeight.w900,
-                                    ),
+                                  const Icon(
+                                    Icons.star_rounded,
+                                    color: Colors.amber,
+                                    size: 32,
                                   ),
-                                  Text(
-                                    '${stats.count} reviews',
-                                    style: Theme.of(
-                                      context,
-                                    ).textTheme.bodySmall,
+                                  const SizedBox(width: 8),
+                                  Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        stats.average.toStringAsFixed(1),
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .headlineSmall
+                                            ?.copyWith(
+                                              fontWeight: FontWeight.w800,
+                                            ),
+                                      ),
+                                      Text(
+                                        '${stats.count} reviews',
+                                        style: Theme.of(
+                                          context,
+                                        ).textTheme.bodySmall,
+                                      ),
+                                    ],
                                   ),
                                 ],
                               ),
-                            ],
-                          ),
-                          loading: () => const CircularProgressIndicator(),
-                          error: (_, __) => const Text('No ratings'),
-                        ),
-                  ],
-                ),
-              ),
-              TextButton.icon(
-                onPressed: () => _showRatingDialog(context, ref, event, user),
-                icon: Icon(
-                  userRatingAsync.value != null
-                      ? Icons.star
-                      : Icons.star_outline,
-                ),
-                label: Text(userRatingAsync.value != null ? 'Update' : 'Rate'),
-              ),
-            ],
-          ),
-          if (!isCreator) ...[
-            const SizedBox(height: 20),
-            isRegisteredAsync.when(
-              data: (isRegistered) => SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: () =>
-                      _toggleRegistration(ref, event, user, isRegistered),
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    backgroundColor: isRegistered
-                        ? Colors.grey[200]
-                        : Theme.of(context).colorScheme.primary,
-                    foregroundColor: isRegistered
-                        ? Colors.black87
-                        : Theme.of(context).colorScheme.onPrimary,
-                    elevation: isRegistered ? 0 : 4,
-                  ),
-                  child: Text(
-                    isRegistered ? 'Unregister' : 'Register for Event',
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
+                              loading: () => const CircularProgressIndicator(),
+                              error: (_, __) => const Text('No ratings'),
+                            ),
+                      ],
                     ),
                   ),
-                ),
-              ),
-              loading: () => const CircularProgressIndicator(),
-              error: (_, __) => const Text('Error'),
-            ),
-          ],
-          if (isCreator) ...[
-            const SizedBox(height: 20),
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                onPressed: () =>
-                    context.push('/events/${event.eventId}/participants'),
-                icon: const Icon(Icons.people_outline),
-                label: const Text('Manage Participants'),
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
+                  TextButton.icon(
+                    onPressed: () => _showRatingDialog(context, ref, event, user),
+                    icon: Icon(
+                      userRatingAsync.value != null
+                          ? Icons.star
+                          : Icons.star_outline,
+                    ),
+                    label: Text(userRatingAsync.value != null ? 'Update' : 'Rate'),
                   ),
-                ),
+                ],
               ),
             ),
-          ],
-        ],
-      ),
+          ),
+          const SizedBox(height: 14),
+          Card(
+            margin: EdgeInsets.zero,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(22),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(18),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    isCreator ? 'Participants' : 'Registration',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  if (!isCreator)
+                    isRegisteredAsync.when(
+                      data: (isRegistered) => SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton.icon(
+                          onPressed: () =>
+                              _toggleRegistration(ref, event, user, isRegistered),
+                          icon: Icon(
+                            isRegistered
+                                ? Icons.event_busy_outlined
+                                : Icons.event_available_outlined,
+                          ),
+                          style: isRegistered
+                              ? ElevatedButton.styleFrom(
+                                  backgroundColor: Theme.of(
+                                    context,
+                                  ).colorScheme.surfaceContainerHighest,
+                                  foregroundColor: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurface,
+                                )
+                              : null,
+                          label: Text(
+                            isRegistered ? 'Unregister' : 'Register for Event',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
+                          ),
+                        ),
+                      ),
+                      loading: () => const CircularProgressIndicator(),
+                      error: (_, __) => const Text('Error'),
+                    ),
+                  if (isCreator)
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        onPressed: () =>
+                            context.push('/events/${event.eventId}/participants'),
+                        icon: const Icon(Icons.people_outline),
+                        label: const Text('Manage Participants'),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+      ],
     );
   }
 
@@ -446,20 +509,38 @@ class EventDetailsScreen extends ConsumerWidget {
   }
 }
 
-class _EventInfoSection extends StatelessWidget {
+class _EventOverviewSection extends StatelessWidget {
   final EventModel event;
-  const _EventInfoSection({required this.event});
+  const _EventOverviewSection({required this.event});
 
   @override
   Widget build(BuildContext context) {
     return Card(
       elevation: 0,
-      color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.3),
+      color: Theme.of(
+        context,
+      ).colorScheme.secondaryContainer.withValues(alpha: 0.3),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
       child: Padding(
         padding: const EdgeInsets.all(20),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            Text(
+              'Description',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              event.description,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                height: 1.45,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
+            const Divider(height: 30),
             DetailRow(
               icon: Icons.calendar_month_outlined,
               label: 'Date & Time',
@@ -537,7 +618,7 @@ class DetailRow extends StatelessWidget {
               Text(
                 label,
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Colors.grey[600],
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
                   fontWeight: FontWeight.bold,
                 ),
               ),
@@ -624,7 +705,7 @@ class _CommentSection extends ConsumerWidget {
                     filled: true,
                     fillColor: Theme.of(
                       context,
-                    ).colorScheme.surfaceVariant.withOpacity(0.3),
+                    ).colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(24),
                       borderSide: BorderSide.none,
@@ -665,7 +746,17 @@ class _CommentSection extends ConsumerWidget {
         commentsAsync.when(
           data: (comments) {
             if (comments.isEmpty) {
-              return const Center(child: Text('No comments yet.'));
+              return Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Theme.of(context)
+                      .colorScheme
+                      .surfaceContainerHighest
+                      .withValues(alpha: 0.5),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: const Center(child: Text('No comments yet.')),
+              );
             }
 
             final user = ref.watch(currentUserProvider).value;
@@ -679,55 +770,54 @@ class _CommentSection extends ConsumerWidget {
                 final comment = comments[index];
                 final isOwner = user?.uid == comment.userId;
 
-                return ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  leading: CircleAvatar(
-                    backgroundImage: comment.userPhotoUrl != null
-                        ? NetworkImage(comment.userPhotoUrl!)
-                        : null,
-                    child: comment.userPhotoUrl == null
-                        ? const Icon(Icons.person)
-                        : null,
-                  ),
-                  title: Text(comment.userName),
-                  subtitle: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(comment.text),
-                      Text(
-                        comment.createdAt.toString().split('.')[0],
-                        style: const TextStyle(
-                          fontSize: 10,
-                          color: Colors.grey,
+                return Card(
+                  margin: const EdgeInsets.only(bottom: 10),
+                  child: ListTile(
+                    leading: CircleAvatar(
+                      backgroundImage: comment.userPhotoUrl != null
+                          ? NetworkImage(comment.userPhotoUrl!)
+                          : null,
+                      child: comment.userPhotoUrl == null
+                          ? const Icon(Icons.person_outline)
+                          : null,
+                    ),
+                    title: Text(comment.userName),
+                    subtitle: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(comment.text),
+                        Text(
+                          comment.createdAt.toString().split('.')[0],
+                          style: Theme.of(context).textTheme.bodySmall,
                         ),
-                      ),
-                    ],
-                  ),
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (isOwner)
-                        IconButton(
-                          icon: const Icon(Icons.edit, size: 20),
-                          onPressed: () => _showEditCommentDialog(
-                            context,
-                            ref,
-                            eventId,
-                            comment,
+                      ],
+                    ),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (isOwner)
+                          IconButton(
+                            icon: const Icon(Icons.edit_outlined, size: 20),
+                            onPressed: () => _showEditCommentDialog(
+                              context,
+                              ref,
+                              eventId,
+                              comment,
+                            ),
                           ),
-                        ),
-                      if (isAdmin || isOwner)
-                        IconButton(
-                          icon: const Icon(
-                            Icons.delete,
-                            color: Colors.red,
-                            size: 20,
+                        if (isAdmin || isOwner)
+                          IconButton(
+                            icon: const Icon(
+                              Icons.delete_outline,
+                              color: Colors.red,
+                              size: 20,
+                            ),
+                            onPressed: () => ref
+                                .read(eventRepositoryProvider)
+                                .deleteComment(eventId, comment.commentId),
                           ),
-                          onPressed: () => ref
-                              .read(eventRepositoryProvider)
-                              .deleteComment(eventId, comment.commentId),
-                        ),
-                    ],
+                      ],
+                    ),
                   ),
                 );
               },
@@ -840,7 +930,7 @@ class _WeatherDisplay extends ConsumerWidget {
           decoration: BoxDecoration(
             color: Theme.of(
               context,
-            ).colorScheme.primaryContainer.withOpacity(0.3),
+            ).colorScheme.primaryContainer.withValues(alpha: 0.45),
             borderRadius: BorderRadius.circular(12),
           ),
           child: Row(

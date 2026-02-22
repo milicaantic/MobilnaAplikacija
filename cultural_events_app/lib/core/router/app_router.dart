@@ -29,55 +29,80 @@ final routerProvider = Provider<GoRouter>((ref) {
       loading: () => _ListenableStream(Stream.value(null)),
     ),
     routes: [
-      GoRoute(path: '/', builder: (context, state) => const HomeScreen()),
+      GoRoute(
+        path: '/',
+        pageBuilder: (context, state) =>
+            _buildPage(state, const HomeScreen(), fromBottom: false),
+      ),
       GoRoute(
         path: '/events',
-        builder: (context, state) => const EventsScreen(),
+        pageBuilder: (context, state) =>
+            _buildPage(state, const EventsScreen(), fromBottom: false),
       ),
       GoRoute(
         path: '/events/:eventId',
-        builder: (context, state) {
+        pageBuilder: (context, state) {
           final eventId = state.pathParameters['eventId']!;
           final event = state.extra as EventModel?;
-          return EventDetailsScreen(eventId: eventId, initialEvent: event);
+          return _buildPage(
+            state,
+            EventDetailsScreen(eventId: eventId, initialEvent: event),
+          );
         },
       ),
       GoRoute(
         path: '/events/:eventId/participants',
-        builder: (context, state) {
+        pageBuilder: (context, state) {
           final eventId = state.pathParameters['eventId']!;
-          return EventParticipantsScreen(eventId: eventId);
+          return _buildPage(state, EventParticipantsScreen(eventId: eventId));
         },
       ),
       GoRoute(
         path: '/create-event',
-        builder: (context, state) => const CreateEventScreen(),
+        pageBuilder: (context, state) => _buildPage(
+          state,
+          const CreateEventScreen(),
+          fromBottom: true,
+        ),
       ),
       GoRoute(
         path: '/categories',
-        builder: (context, state) => const CategoriesScreen(),
+        pageBuilder: (context, state) => _buildPage(
+          state,
+          const CategoriesScreen(),
+          fromBottom: true,
+        ),
       ),
       GoRoute(
         path: '/my-events',
-        builder: (context, state) => const MyEventsScreen(),
+        pageBuilder: (context, state) =>
+            _buildPage(state, const MyEventsScreen()),
       ),
       GoRoute(
         path: '/my-registrations',
-        builder: (context, state) => const MyRegistrationsScreen(),
+        pageBuilder: (context, state) =>
+            _buildPage(state, const MyRegistrationsScreen()),
       ),
       GoRoute(
         path: '/profile',
-        builder: (context, state) => const ProfileScreen(),
+        pageBuilder: (context, state) =>
+            _buildPage(state, const ProfileScreen(), fromBottom: true),
       ),
       GoRoute(
         path: '/admin',
-        builder: (context, state) => const AdminDashboardScreen(),
+        pageBuilder: (context, state) =>
+            _buildPage(state, const AdminDashboardScreen()),
       ),
 
-      GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),
+      GoRoute(
+        path: '/login',
+        pageBuilder: (context, state) =>
+            _buildPage(state, const LoginScreen(), fromBottom: true),
+      ),
       GoRoute(
         path: '/register',
-        builder: (context, state) => const RegisterScreen(),
+        pageBuilder: (context, state) =>
+            _buildPage(state, const RegisterScreen(), fromBottom: true),
       ),
     ],
     redirect: (context, state) {
@@ -102,6 +127,37 @@ final routerProvider = Provider<GoRouter>((ref) {
     },
   );
 });
+
+CustomTransitionPage<void> _buildPage(
+  GoRouterState state,
+  Widget child, {
+  bool fromBottom = false,
+}) {
+  final begin = fromBottom ? const Offset(0, 0.06) : const Offset(0.04, 0);
+  return CustomTransitionPage<void>(
+    key: state.pageKey,
+    child: child,
+    transitionDuration: const Duration(milliseconds: 240),
+    reverseTransitionDuration: const Duration(milliseconds: 200),
+    transitionsBuilder: (context, animation, secondaryAnimation, widget) {
+      final curved = CurvedAnimation(
+        parent: animation,
+        curve: Curves.easeOutCubic,
+        reverseCurve: Curves.easeInCubic,
+      );
+      return FadeTransition(
+        opacity: Tween<double>(begin: 0.8, end: 1).animate(curved),
+        child: SlideTransition(
+          position: Tween<Offset>(
+            begin: begin,
+            end: Offset.zero,
+          ).animate(curved),
+          child: widget,
+        ),
+      );
+    },
+  );
+}
 
 class _ListenableStream extends ChangeNotifier {
   _ListenableStream(Stream stream) {

@@ -7,7 +7,6 @@ import '../domain/event_model.dart';
 import '../domain/event_status.dart';
 import '../../categories/data/category_repository.dart';
 import '../../../core/providers/current_user_provider.dart';
-import '../../auth/domain/user_role.dart';
 
 part 'events_screen.g.dart';
 
@@ -33,10 +32,10 @@ class EventsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final userAsync = ref.watch(currentUserProvider);
-    final isAdmin = userAsync.value?.role == UserRole.admin;
 
     final searchQuery = ref.watch(eventSearchQueryProvider);
     final selectedCategoryId = ref.watch(selectedCategoryIdProvider);
+    final colorScheme = Theme.of(context).colorScheme;
 
     final eventsAsync = ref.watch(
       eventsStreamProvider(
@@ -51,40 +50,43 @@ class EventsScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Cultural Events'),
+        title: const Text('Events'),
         bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(100),
+          preferredSize: const Size.fromHeight(118),
           child: Column(
             children: [
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: TextField(
                   decoration: InputDecoration(
                     hintText: 'Search events...',
-                    prefixIcon: const Icon(Icons.search),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(30),
-                      borderSide: BorderSide.none,
-                    ),
-                    filled: true,
-                    fillColor: Theme.of(context).colorScheme.surfaceVariant,
-                    contentPadding: const EdgeInsets.symmetric(vertical: 0),
+                    prefixIcon: const Icon(Icons.search_rounded),
+                    suffixIcon: searchQuery.isNotEmpty
+                        ? IconButton(
+                            tooltip: 'Clear search',
+                            icon: const Icon(Icons.close_rounded),
+                            onPressed: () => ref
+                                .read(eventSearchQueryProvider.notifier)
+                                .setQuery(''),
+                          )
+                        : null,
                   ),
                   onChanged: (val) =>
                       ref.read(eventSearchQueryProvider.notifier).setQuery(val),
                 ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 10),
               SizedBox(
                 height: 50,
                 child: categoriesAsync.when(
-                  data: (categories) => ListView(
+                  data: (categories) => ListView.separated(
                     scrollDirection: Axis.horizontal,
                     padding: const EdgeInsets.symmetric(horizontal: 16),
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.only(right: 8.0),
-                        child: ChoiceChip(
+                    itemCount: categories.length + 1,
+                    separatorBuilder: (_, __) => const SizedBox(width: 8),
+                    itemBuilder: (context, index) {
+                      if (index == 0) {
+                        return ChoiceChip(
                           label: const Text('All'),
                           selected: selectedCategoryId == null,
                           onSelected: (selected) {
@@ -94,50 +96,60 @@ class EventsScreen extends ConsumerWidget {
                                   .setSelectedId(null);
                             }
                           },
-                        ),
-                      ),
-                      ...categories
-                          .map(
-                            (c) => Padding(
-                              padding: const EdgeInsets.only(right: 8.0),
-                              child: ChoiceChip(
-                                label: Text(c.name),
-                                selected: selectedCategoryId == c.categoryId,
-                                onSelected: (selected) {
-                                  ref
-                                      .read(selectedCategoryIdProvider.notifier)
-                                      .setSelectedId(
-                                        selected ? c.categoryId : null,
-                                      );
-                                },
-                              ),
-                            ),
-                          )
-                          .toList(),
-                    ],
+                        );
+                      }
+                      final category = categories[index - 1];
+                      return ChoiceChip(
+                        label: Text(category.name),
+                        selected: selectedCategoryId == category.categoryId,
+                        onSelected: (selected) {
+                          ref
+                              .read(selectedCategoryIdProvider.notifier)
+                              .setSelectedId(selected ? category.categoryId : null);
+                        },
+                      );
+                    },
                   ),
                   loading: () => const Center(child: LinearProgressIndicator()),
                   error: (_, __) => const SizedBox(),
                 ),
               ),
+              const SizedBox(height: 10),
             ],
           ),
         ),
-        actions: [
-          if (isAdmin)
-            IconButton(
-              icon: const Icon(Icons.category),
-              onPressed: () => context.push('/categories'),
-            ),
-        ],
       ),
       body: eventsAsync.when(
         data: (events) => events.isEmpty
-            ? const Center(
-                child: Text('No events found matching your criteria.'),
+            ? Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.search_off_rounded,
+                        size: 64,
+                        color: colorScheme.outline,
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        'No events found',
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      const Text(
+                        'Try another keyword or change the selected category.',
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
+                  ),
+                ),
               )
             : ListView.builder(
-                padding: const EdgeInsets.all(20),
+                padding: const EdgeInsets.fromLTRB(16, 18, 16, 28),
                 itemCount: events.length,
                 itemBuilder: (context, index) {
                   return _EventCard(event: events[index]);
@@ -168,32 +180,29 @@ class _EventCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final categoriesAsync = ref.watch(categoriesStreamProvider);
     final categoryName = categoriesAsync.when(
-      data: (cats) =>
-          cats.firstWhere((c) => c.categoryId == event.categoryId).name,
+      data: (cats) {
+        for (final category in cats) {
+          if (category.categoryId == event.categoryId) {
+            return category.name;
+          }
+        }
+        return 'General';
+      },
       loading: () => '...',
       error: (_, __) => '',
     );
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 20),
-      decoration: BoxDecoration(
-        color: Theme.of(context).cardTheme.color,
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Material(
-        color: Colors.transparent,
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0.96, end: 1),
+      duration: const Duration(milliseconds: 240),
+      builder: (context, value, child) =>
+          Transform.scale(scale: value, child: child),
+      child: Card(
         child: InkWell(
-          borderRadius: BorderRadius.circular(24),
+          borderRadius: BorderRadius.circular(18),
           onTap: () => context.push('/events/${event.eventId}', extra: event),
           child: Padding(
-            padding: const EdgeInsets.all(20),
+            padding: const EdgeInsets.all(16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -201,30 +210,30 @@ class _EventCard extends ConsumerWidget {
                   Hero(
                     tag: 'image-${event.eventId}',
                     child: ClipRRect(
-                      borderRadius: BorderRadius.circular(16),
+                      borderRadius: BorderRadius.circular(14),
                       child: Image.network(
                         event.imageUrl!,
-                        height: 150,
+                        height: 160,
                         width: double.infinity,
                         fit: BoxFit.cover,
                       ),
                     ),
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 14),
                 ],
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Container(
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 6,
+                        horizontal: 10,
+                        vertical: 5,
                       ),
                       decoration: BoxDecoration(
-                        color: Theme.of(
-                          context,
-                        ).colorScheme.primaryContainer.withOpacity(0.3),
-                        borderRadius: BorderRadius.circular(12),
+                        color: Theme.of(context)
+                            .colorScheme
+                            .primaryContainer
+                            .withValues(alpha: 0.75),
+                        borderRadius: BorderRadius.circular(999),
                       ),
                       child: Text(
                         categoryName.toUpperCase(),
@@ -232,20 +241,20 @@ class _EventCard extends ConsumerWidget {
                           fontSize: 10,
                           fontWeight: FontWeight.w800,
                           color: Theme.of(context).colorScheme.primary,
-                          letterSpacing: 1,
+                          letterSpacing: 0.7,
                         ),
                       ),
                     ),
+                    const Spacer(),
                     Text(
                       _formatDate(event.time),
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: Colors.grey[600],
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 12),
                 Hero(
                   tag: 'title-${event.eventId}',
                   child: Material(
@@ -253,8 +262,7 @@ class _EventCard extends ConsumerWidget {
                     child: Text(
                       event.title,
                       style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: -0.5,
+                        fontWeight: FontWeight.w800,
                       ),
                     ),
                   ),
@@ -265,48 +273,46 @@ class _EventCard extends ConsumerWidget {
                     Icon(
                       Icons.location_on_outlined,
                       size: 16,
-                      color: Colors.grey[400],
+                      color: Theme.of(context).colorScheme.outline,
                     ),
                     const SizedBox(width: 4),
                     Expanded(
                       child: Text(
                         event.location['name'] ?? 'No location',
-                        style: TextStyle(color: Colors.grey[600], fontSize: 13),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 12),
                 Row(
                   children: [
                     CircleAvatar(
                       radius: 12,
-                      backgroundColor: Theme.of(
-                        context,
-                      ).colorScheme.secondary.withOpacity(0.1),
                       child: Text(
-                        event.creatorName[0].toUpperCase(),
-                        style: TextStyle(
+                        event.creatorName.isNotEmpty
+                            ? event.creatorName[0].toUpperCase()
+                            : '?',
+                        style: const TextStyle(
                           fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                          color: Theme.of(context).colorScheme.secondary,
+                          fontWeight: FontWeight.w700,
                         ),
                       ),
                     ),
                     const SizedBox(width: 8),
-                    Text(
-                      'by ${event.creatorName}',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        fontWeight: FontWeight.w500,
+                    Expanded(
+                      child: Text(
+                        'by ${event.creatorName}',
+                        style: Theme.of(context).textTheme.bodySmall,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                    const Spacer(),
                     Icon(
-                      Icons.arrow_forward_ios,
-                      size: 12,
-                      color: Colors.grey[300],
+                      Icons.arrow_forward_ios_rounded,
+                      size: 14,
+                      color: Theme.of(context).colorScheme.outline,
                     ),
                   ],
                 ),

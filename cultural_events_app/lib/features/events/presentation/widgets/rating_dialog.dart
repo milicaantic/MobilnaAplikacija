@@ -20,24 +20,33 @@ class _RatingDialogState extends State<RatingDialog> {
         mainAxisSize: MainAxisSize.min,
         children: [
           const Text('Select a rating from 1 to 5 stars:'),
-          const SizedBox(height: 16),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
+          const SizedBox(height: 14),
+          Wrap(
+            alignment: WrapAlignment.center,
+            spacing: 4,
             children: List.generate(5, (index) {
               final ratingValue = index + 1;
-              return IconButton(
-                icon: Icon(
-                  _currentRating >= ratingValue
-                      ? Icons.star
-                      : Icons.star_border,
-                  color: Colors.amber,
-                  size: 32,
+              final selected = _currentRating >= ratingValue;
+              return AnimatedContainer(
+                duration: const Duration(milliseconds: 180),
+                decoration: BoxDecoration(
+                  color: selected
+                      ? Colors.amber.withValues(alpha: 0.2)
+                      : Colors.transparent,
+                  borderRadius: BorderRadius.circular(10),
                 ),
-                onPressed: () {
-                  setState(() {
-                    _currentRating = ratingValue;
-                  });
-                },
+                child: IconButton(
+                  icon: Icon(
+                    selected ? Icons.star_rounded : Icons.star_border_rounded,
+                    color: Colors.amber[700],
+                    size: 32,
+                  ),
+                  onPressed: () {
+                    setState(() {
+                      _currentRating = ratingValue;
+                    });
+                  },
+                ),
               );
             }),
           ),

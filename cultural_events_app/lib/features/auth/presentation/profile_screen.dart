@@ -56,26 +56,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   @override
   Widget build(BuildContext context) {
     final userAsync = ref.watch(currentUserProvider);
+    final colorScheme = Theme.of(context).colorScheme;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('My Profile'),
-        actions: [
-          if (_isEditing)
-            IconButton(
-              icon: const Icon(Icons.check),
-              onPressed: () {
-                final user = userAsync.value;
-                if (user != null) _saveProfile(user.uid);
-              },
-            )
-          else
-            IconButton(
-              icon: const Icon(Icons.edit),
-              onPressed: () => setState(() => _isEditing = true),
-            ),
-        ],
-      ),
+      appBar: AppBar(title: const Text('My Profile')),
       body: userAsync.when(
         data: (user) {
           if (user == null) {
@@ -84,58 +68,123 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           _setupControllers(user);
 
           return SingleChildScrollView(
-            padding: const EdgeInsets.all(24.0),
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
             child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                CircleAvatar(
-                  radius: 60,
-                  backgroundImage: user.photoUrl != null
-                      ? NetworkImage(user.photoUrl!)
-                      : null,
-                  child: user.photoUrl == null
-                      ? const Icon(Icons.person, size: 60)
-                      : null,
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(18),
+                    child: Column(
+                      children: [
+                        CircleAvatar(
+                          radius: 48,
+                          backgroundImage: user.photoUrl != null
+                              ? NetworkImage(user.photoUrl!)
+                              : null,
+                          child: user.photoUrl == null
+                              ? const Icon(Icons.person, size: 48)
+                              : null,
+                        ),
+                        const SizedBox(height: 12),
+                        if (!_isEditing) ...[
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  user.name,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: Theme.of(
+                                    context,
+                                  ).textTheme.headlineSmall?.copyWith(
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              IconButton(
+                                icon: const Icon(Icons.edit_outlined),
+                                tooltip: 'Edit profile',
+                                onPressed: () =>
+                                    setState(() => _isEditing = true),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            user.email,
+                            style: Theme.of(context).textTheme.bodyMedium,
+                          ),
+                          const SizedBox(height: 10),
+                          Chip(
+                            label: Text(user.role.name.toUpperCase()),
+                            avatar: const Icon(Icons.verified_user_outlined),
+                            backgroundColor: colorScheme.primaryContainer
+                              .withValues(alpha: 0.8),
+                          ),
+                        ],
+                        if (_isEditing) ...[
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  user.name,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: Theme.of(context).textTheme.titleLarge
+                                      ?.copyWith(fontWeight: FontWeight.w700),
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              IconButton(
+                                icon: const Icon(Icons.check_circle_outline),
+                                tooltip: 'Save profile',
+                                onPressed: () => _saveProfile(user.uid),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            user.email,
+                            style: Theme.of(context).textTheme.bodyMedium,
+                          ),
+                          const SizedBox(height: 10),
+                          Chip(
+                            label: Text(user.role.name.toUpperCase()),
+                            avatar: const Icon(Icons.verified_user_outlined),
+                            backgroundColor: colorScheme.primaryContainer
+                                .withValues(alpha: 0.8),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: 16),
                 if (_isEditing) ...[
                   TextField(
                     controller: _nameController,
                     decoration: const InputDecoration(
                       labelText: 'Name',
-                      border: OutlineInputBorder(),
+                      prefixIcon: Icon(Icons.person_outline),
                     ),
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 12),
                   TextField(
                     controller: _photoUrlController,
                     decoration: const InputDecoration(
                       labelText: 'Photo URL',
-                      border: OutlineInputBorder(),
+                      prefixIcon: Icon(Icons.image_outlined),
                     ),
                   ),
-                ] else ...[
+                  const SizedBox(height: 10),
                   Text(
-                    user.name,
-                    style: Theme.of(context).textTheme.headlineMedium,
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    user.email,
-                    style: Theme.of(
-                      context,
-                    ).textTheme.bodyLarge?.copyWith(color: Colors.grey),
-                  ),
-                  const SizedBox(height: 16),
-                  Chip(
-                    label: Text(user.role.name.toUpperCase()),
-                    backgroundColor: Theme.of(
-                      context,
-                    ).colorScheme.primaryContainer,
+                    'Tap the check icon next to your name to save changes.',
+                    style: Theme.of(context).textTheme.bodySmall,
                   ),
                 ],
-                const SizedBox(height: 48),
-                const Divider(),
-                const SizedBox(height: 24),
+                const SizedBox(height: 18),
                 SizedBox(
                   width: double.infinity,
                   child: OutlinedButton.icon(

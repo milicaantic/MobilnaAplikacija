@@ -18,27 +18,48 @@ class EventParticipantsScreen extends ConsumerWidget {
       body: registrationsAsync.when(
         data: (registrations) {
           if (registrations.isEmpty) {
-            return const Center(
-              child: Text('No one has registered for this event yet.'),
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.group_off_outlined,
+                      size: 60,
+                      color: Theme.of(context).colorScheme.outline,
+                    ),
+                    const SizedBox(height: 10),
+                    const Text('No one has registered for this event yet.'),
+                  ],
+                ),
+              ),
             );
           }
 
-          return ListView.builder(
+          return ListView.separated(
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 24),
             itemCount: registrations.length,
+            separatorBuilder: (_, __) => const SizedBox(height: 10),
             itemBuilder: (context, index) {
               final registration = registrations[index];
-              return ListTile(
-                leading: CircleAvatar(
-                  backgroundImage: registration.userPhotoUrl != null
-                      ? NetworkImage(registration.userPhotoUrl!)
-                      : null,
-                  child: registration.userPhotoUrl == null
-                      ? const Icon(Icons.person)
-                      : null,
-                ),
-                title: Text(registration.userName),
-                subtitle: Text(
-                  'Registered on: ${registration.registeredAt.toLocal().toString().split('.')[0]}',
+              return Card(
+                child: ListTile(
+                  leading: CircleAvatar(
+                    backgroundImage: registration.userPhotoUrl != null
+                        ? NetworkImage(registration.userPhotoUrl!)
+                        : null,
+                    child: registration.userPhotoUrl == null
+                        ? const Icon(Icons.person_outline)
+                        : null,
+                  ),
+                  title: Text(
+                    registration.userName,
+                    style: const TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                  subtitle: Text(
+                    'Registered on: ${registration.registeredAt.toLocal().toString().split('.')[0]}',
+                  ),
                 ),
               );
             },
