@@ -1,0 +1,127 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ─── Helper Functions ───────────────────────────────────────────
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function getUserRole() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (request.auth.token.admin == true || getUserRole() == 'admin');
+    }
+
+    // ─── users Collection ───────────────────────────────────────────
+    match /users/{userId} {
+      // Anyone signed in can read any user profile.
+      allow read: if isSignedIn();
+
+      // Users can create their own profile document on sign-up.
+      allow create: if isOwner(userId);
+
+      // Users can update their own profile (but not change their role).
+      allow update: if isOwner(userId) && !('role' in request.resource.data)
+                    || (isOwner(userId) && request.resource.data.role == resource.data.role)
+                    || isAdmin();
+
+      // Only admins can delete user profiles.
+      allow delete: if isAdmin();
+    }
+
+    // ─── categories Collection ──────────────────────────────────────
+    match /categories/{categoryId} {
+      // Anyone can read categories (needed for the feed).
+      allow read: if true;
+
+      // Only admins can create, update, or delete categories.
+      allow create, update, delete: if isAdmin();
+    }
+
+    // ─── events Collection ──────────────────────────────────────────
+    match /events/{eventId} {
+      // Read: approved events are public; owners and admins see all statuses.
+      allow read: if resource.data.status == 'approved'
+                  || (isSignedIn() && request.auth.uid == resource.data.creatorId)
+                  || isAdmin();
+
+      // Create: must be signed in. Force status to 'pending'.
+      allow create: if isSignedIn()
+                    && request.resource.data.status == 'pending'
+                    && request.resource.data.creatorId == request.auth.uid;
+
+      // Update: owner can update if still pending; admins can update anything.
+      allow update: if isAdmin()
+                    || (isSignedIn()
+                        && request.auth.uid == resource.data.creatorId
+                        && resource.data.status == 'pending');
+
+      // Delete: owner can delete if pending; admins can delete any event.
+      allow delete: if isAdmin()
+                    || (isSignedIn()
+                        && request.auth.uid == resource.data.creatorId
+                        && resource.data.status == 'pending');
+
+      // ─── comments Subcollection ─────────────────────────────────
+      match /comments/{commentId} {
+        // Anyone signed in can read comments on approved events.
+        allow read: if isSignedIn();
+
+        // Signed-in users can create comments (userId must match auth).
+        allow create: if isSignedIn()
+                      && request.resource.data.userId == request.auth.uid;
+
+        // Comment owner can delete their own comment; admins can delete any.
+        allow delete: if isSignedIn()
+                      && (request.auth.uid == resource.data.userId || isAdmin());
+
+        // Comments are immutable — no updates allowed.
+        allow update: if false;
+      }
+
+      // ─── registrations Subcollection ────────────────────────────
+      match /registrations/{userId} {
+        // Event creator and the registrant can read registrations.
+        allow read: if isSignedIn();
+
+        // A user can only register themselves (doc ID must equal auth uid).
+        allow create: if isOwner(userId)
+                      && request.resource.data.userId == request.auth.uid;
+
+        // A user can unregister themselves.
+        allow delete: if isOwner(userId);
+
+        // No updates to registrations.
+        allow update: if false;
+      }
+
+      // ─── ratings Subcollection ──────────────────────────────────
+      match /ratings/{userId} {
+        // Anyone signed in can read ratings.
+        allow read: if isSignedIn();
+
+        // A user can rate (doc ID must equal auth uid, rating 1–5).
+        allow create: if isOwner(userId)
+                      && request.resource.data.userId == request.auth.uid
+                      && request.resource.data.rating >= 1
+                      && request.resource.data.rating <= 5;
+
+        // A user can update their own rating (still must be 1–5).
+        allow update: if isOwner(userId)
+                      && request.resource.data.rating >= 1
+                      && request.resource.data.rating <= 5;
+
+        // A user can delete their own rating.
+        allow delete: if isOwner(userId);
+      }
+    }
+  }
+}
