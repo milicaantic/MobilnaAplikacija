@@ -40,7 +40,15 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen> {
   String? _selectedCategoryId;
   bool _isLoading = false;
   bool _didPopulateForm = false;
+  bool _networkImageFailed = false;
   EventModel? _editingBaseEvent;
+
+  bool _isValidImageUrl(String? value) {
+    final url = value?.trim();
+    if (url == null || url.isEmpty) return false;
+    final uri = Uri.tryParse(url);
+    return uri != null && uri.hasScheme && uri.host.isNotEmpty;
+  }
 
   Future<String?> _validateImageAccessibility(String imageUrl) async {
     final formatValidation = AppValidators.validateImageUrl(imageUrl);
@@ -211,8 +219,13 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen> {
     );
 
     try {
+      final finalImageUrl = _imageUrlController.text.trim();
+      final eventToSave = event.copyWith(
+        imageUrl: finalImageUrl.isEmpty ? null : finalImageUrl,
+      );
+
       if (isEditMode) {
-        await ref.read(eventRepositoryProvider).updateEvent(event);
+        await ref.read(eventRepositoryProvider).updateEvent(eventToSave);
         if (shouldResetRejectedToPending && mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
@@ -223,7 +236,12 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen> {
           );
         }
       } else {
-        await ref.read(eventRepositoryProvider).createEvent(event);
+        await ref.read(eventRepositoryProvider).createEvent(eventToSave);
+      }
+      if (mounted) {
+        setState(() {
+          _imageUrlController.text = finalImageUrl;
+        });
       }
       if (mounted) context.pop();
     } catch (e) {
@@ -273,6 +291,7 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen> {
         _descriptionController.text = editingEvent.description;
         _locationController.text = (editingEvent.location['name'] as String?) ?? '';
         _imageUrlController.text = editingEvent.imageUrl ?? '';
+        _networkImageFailed = false;
         _selectedDate = editingEvent.time;
         _selectedCategoryId = editingEvent.categoryId;
       }
@@ -291,6 +310,46 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
+                    Builder(
+                      builder: (context) {
+                        final url = _imageUrlController.text.trim();
+                        final ImageProvider<Object>? imageProvider =
+                            !_networkImageFailed && _isValidImageUrl(url)
+                            ? NetworkImage(url)
+                            : null;
+
+                        return Card(
+                          clipBehavior: Clip.antiAlias,
+                          child: SizedBox(
+                            height: 180,
+                            child: DecoratedBox(
+                              decoration: BoxDecoration(
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .surfaceContainerHighest,
+                              ),
+                              child: imageProvider == null
+                                  ? Icon(
+                                      Icons.image_outlined,
+                                      size: 42,
+                                      color: Theme.of(context).colorScheme.outline,
+                                    )
+                                  : Ink.image(
+                                      image: imageProvider,
+                                      fit: BoxFit.cover,
+                                      child: const SizedBox.expand(),
+                                      onImageError: (_, __) {
+                                        if (mounted) {
+                                          setState(() => _networkImageFailed = true);
+                                        }
+                                      },
+                                    ),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 12),
                     Card(
                       child: Padding(
                         padding: const EdgeInsets.all(16),
@@ -423,6 +482,11 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen> {
                       ),
                       keyboardType: TextInputType.url,
                       validator: AppValidators.validateImageUrl,
+                      onChanged: (_) {
+                        if (_networkImageFailed) {
+                          setState(() => _networkImageFailed = false);
+                        }
+                      },
                     ),
                     const SizedBox(height: 24),
                     ElevatedButton.icon(

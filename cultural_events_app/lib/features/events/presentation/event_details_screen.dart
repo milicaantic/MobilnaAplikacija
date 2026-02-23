@@ -868,15 +868,24 @@ class _CommentSectionState extends ConsumerState<_CommentSection> {
         if (canComment) ...[
           Row(
             children: [
-              CircleAvatar(
-                radius: 18,
-                backgroundImage: user.photoUrl != null
-                    ? NetworkImage(user.photoUrl!)
-                    : null,
-                onBackgroundImageError: (_, __) {},
-                child: user.photoUrl == null
-                    ? const Icon(Icons.person, size: 20)
-                    : null,
+              Builder(
+                builder: (context) {
+                  final commenterPhotoUrl = (user.photoUrl ?? '').trim();
+                  final ImageProvider<Object>? commenterImageProvider =
+                      commenterPhotoUrl.isNotEmpty
+                      ? NetworkImage(commenterPhotoUrl)
+                      : null;
+                  return CircleAvatar(
+                    radius: 18,
+                    backgroundImage: commenterImageProvider,
+                    onBackgroundImageError: commenterImageProvider == null
+                        ? null
+                        : (_, __) {},
+                    child: commenterImageProvider == null
+                        ? const Icon(Icons.person, size: 20)
+                        : null,
+                  );
+                },
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -971,14 +980,24 @@ class _CommentSectionState extends ConsumerState<_CommentSection> {
                 return Card(
                   margin: const EdgeInsets.only(bottom: 10),
                   child: ListTile(
-                    leading: CircleAvatar(
-                      backgroundImage: comment.userPhotoUrl != null
-                          ? NetworkImage(comment.userPhotoUrl!)
-                          : null,
-                      onBackgroundImageError: (_, __) {},
-                      child: comment.userPhotoUrl == null
-                          ? const Icon(Icons.person_outline)
-                          : null,
+                    leading: Builder(
+                      builder: (context) {
+                        final commentPhotoUrl = (comment.userPhotoUrl ?? '').trim();
+                        final ImageProvider<Object>? commentImageProvider =
+                            commentPhotoUrl.isNotEmpty
+                            ? NetworkImage(commentPhotoUrl)
+                            : null;
+
+                        return CircleAvatar(
+                          backgroundImage: commentImageProvider,
+                          onBackgroundImageError: commentImageProvider == null
+                              ? null
+                              : (_, __) {},
+                          child: commentImageProvider == null
+                              ? const Icon(Icons.person_outline)
+                              : null,
+                        );
+                      },
                     ),
                     title: Text(comment.userName),
                     subtitle: Column(

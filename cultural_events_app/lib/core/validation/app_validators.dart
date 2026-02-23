@@ -3,7 +3,7 @@ class AppValidators {
   static const int titleMax = 50;
   static const int descriptionMin = 10;
   static const int descriptionMax = 500;
-  static const int emailMax = 20;
+  static const int emailMax = 100;
   static const int passwordMin = 6;
   static const int passwordMax = 20;
   static const int categoryNameMax = 20;

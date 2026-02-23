@@ -18,6 +18,7 @@ class ProfileScreen extends ConsumerStatefulWidget {
 class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   final _editFormKey = GlobalKey<FormState>();
   bool _isEditing = false;
+  bool _networkImageFailed = false;
   late TextEditingController _nameController;
   late TextEditingController _photoUrlController;
 
@@ -39,7 +40,15 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     if (user != null && !_isEditing) {
       _nameController.text = user.name;
       _photoUrlController.text = user.photoUrl ?? '';
+      _networkImageFailed = false;
     }
+  }
+
+  bool _isValidImageUrl(String? value) {
+    final url = value?.trim();
+    if (url == null || url.isEmpty) return false;
+    final uri = Uri.tryParse(url);
+    return uri != null && uri.hasScheme && uri.host.isNotEmpty;
   }
 
   Future<String?> _validateImageAccessibility(String imageUrl) async {
@@ -101,10 +110,17 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           name: _nameController.text.trim(),
           photoUrl: photoUrl,
         );
-    setState(() => _isEditing = false);
+    setState(() {
+      _isEditing = false;
+      _photoUrlController.text = photoUrl;
+    });
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Profile updated successfully')),
+        SnackBar(
+          content: Text(
+            'Profile updated successfully',
+          ),
+        ),
       );
     }
   }
@@ -122,6 +138,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             return const Center(child: Text('User not found.'));
           }
           _setupControllers(user);
+          final networkUrl = _photoUrlController.text.trim().isNotEmpty
+              ? _photoUrlController.text.trim()
+              : user.photoUrl;
+          final ImageProvider<Object>? networkImageProvider =
+              !_networkImageFailed && _isValidImageUrl(networkUrl)
+              ? NetworkImage(networkUrl!)
+              : null;
+          final ImageProvider<Object>? imageProvider = networkImageProvider;
 
           return SingleChildScrollView(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
@@ -135,11 +159,15 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       children: [
                         CircleAvatar(
                           radius: 48,
-                          backgroundImage: user.photoUrl != null
-                              ? NetworkImage(user.photoUrl!)
-                              : null,
-                          onBackgroundImageError: (_, __) {},
-                          child: user.photoUrl == null
+                          backgroundImage: imageProvider,
+                          onBackgroundImageError: imageProvider == null
+                              ? null
+                              : (_, __) {
+                                  if (mounted) {
+                                    setState(() => _networkImageFailed = true);
+                                  }
+                                },
+                          child: imageProvider == null
                               ? const Icon(Icons.person, size: 48)
                               : null,
                         ),
@@ -237,6 +265,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                         TextFormField(
                           controller: _photoUrlController,
                           validator: AppValidators.validateImageUrl,
+                          onChanged: (_) {
+                            if (_networkImageFailed) {
+                              setState(() => _networkImageFailed = false);
+                            }
+                          },
                           decoration: const InputDecoration(
                             labelText: 'Photo URL',
                             prefixIcon: Icon(Icons.image_outlined),

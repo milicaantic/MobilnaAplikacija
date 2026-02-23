@@ -69,15 +69,23 @@ class _UserManagementView extends ConsumerWidget {
                 horizontal: 14,
                 vertical: 8,
               ),
-              leading: CircleAvatar(
-                radius: 23,
-                backgroundImage: user.photoUrl != null
-                    ? NetworkImage(user.photoUrl!)
-                    : null,
-                onBackgroundImageError: (_, __) {},
-                child: user.photoUrl == null
-                    ? const Icon(Icons.person_outline)
-                    : null,
+              leading: Builder(
+                builder: (context) {
+                  final photoUrl = (user.photoUrl ?? '').trim();
+                  final ImageProvider<Object>? imageProvider = photoUrl.isNotEmpty
+                      ? NetworkImage(photoUrl)
+                      : null;
+                  return CircleAvatar(
+                    radius: 23,
+                    backgroundImage: imageProvider,
+                    onBackgroundImageError: imageProvider == null
+                        ? null
+                        : (_, __) {},
+                    child: imageProvider == null
+                        ? const Icon(Icons.person_outline)
+                        : null,
+                  );
+                },
               ),
               title: Text(
                 user.name,

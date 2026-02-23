@@ -75,15 +75,38 @@ class HomeScreen extends ConsumerWidget {
         ? colorScheme.tertiary
         : colorScheme.secondary;
     final roleLabel = user.role == UserRole.admin ? 'Admin Access' : 'User Access';
+    final profilePhotoUrl = user.photoUrl?.trim();
+    final hasProfilePhoto = profilePhotoUrl != null && profilePhotoUrl.isNotEmpty;
 
     return Scaffold(
       appBar: AppBar(
         centerTitle: true,
         title: const Text('Cultural Events'),
         actions: [
-          IconButton.filledTonal(
+          IconButton(
             tooltip: 'Profile',
-            icon: const Icon(Icons.person_outline),
+            style: IconButton.styleFrom(
+              padding: EdgeInsets.zero,
+              minimumSize: const Size(40, 40),
+            ),
+            icon: CircleAvatar(
+              radius: 16,
+              backgroundColor: colorScheme.secondaryContainer,
+              child: hasProfilePhoto
+                  ? ClipOval(
+                      child: Image.network(
+                        profilePhotoUrl!,
+                        width: 32,
+                        height: 32,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => const Icon(
+                          Icons.person_outline,
+                          size: 18,
+                        ),
+                      ),
+                    )
+                  : const Icon(Icons.person_outline, size: 18),
+            ),
             onPressed: () => context.push('/profile'),
           ),
           const SizedBox(width: 8),

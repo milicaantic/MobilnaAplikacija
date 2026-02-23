@@ -45,14 +45,21 @@ class EventParticipantsScreen extends ConsumerWidget {
               final registration = registrations[index];
               return Card(
                 child: ListTile(
-                  leading: CircleAvatar(
-                    backgroundImage: registration.userPhotoUrl != null
-                        ? NetworkImage(registration.userPhotoUrl!)
-                        : null,
-                    onBackgroundImageError: (_, __) {},
-                    child: registration.userPhotoUrl == null
-                        ? const Icon(Icons.person_outline)
-                        : null,
+                  leading: Builder(
+                    builder: (context) {
+                      final photoUrl = (registration.userPhotoUrl ?? '').trim();
+                      final ImageProvider<Object>? imageProvider =
+                          photoUrl.isNotEmpty ? NetworkImage(photoUrl) : null;
+                      return CircleAvatar(
+                        backgroundImage: imageProvider,
+                        onBackgroundImageError: imageProvider == null
+                            ? null
+                            : (_, __) {},
+                        child: imageProvider == null
+                            ? const Icon(Icons.person_outline)
+                            : null,
+                      );
+                    },
                   ),
                   title: Text(
                     registration.userName,
