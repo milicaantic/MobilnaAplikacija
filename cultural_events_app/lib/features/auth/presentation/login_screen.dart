@@ -187,10 +187,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           child: const Text('Need an account? Register'),
                         ),
                         const SizedBox(height: 4),
-                        OutlinedButton(
-                          onPressed: () => context.go('/'),
-                          child: const Text('Continue as Guest'),
-                        ),
+                        
                       ],
                     ),
                   ),
