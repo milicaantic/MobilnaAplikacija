@@ -40,7 +40,7 @@ class EventsScreen extends ConsumerWidget {
     final eventsAsync = ref.watch(
       eventsStreamProvider(
         status:
-            EventStatus.approved, // Always show only approved events publicly
+            EventStatus.approved, 
         categoryId: selectedCategoryId,
         searchQuery: searchQuery,
       ),
@@ -325,7 +325,6 @@ class _EventCard extends ConsumerWidget {
   }
 
   String _formatDate(DateTime date) {
-    // Simple format: Feb 22, 19:00
     final months = [
       'Jan',
       'Feb',

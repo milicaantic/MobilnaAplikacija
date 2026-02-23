@@ -1,9 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-/// Represents a comment on an event.
-///
-/// Maps to the `events/{eventId}/comments` subcollection.
-/// Contains denormalized user data to avoid extra reads.
+
 class Comment {
   final String commentId;
   final String userId;
@@ -21,7 +18,6 @@ class Comment {
     required this.createdAt,
   });
 
-  /// Creates a [Comment] from a Firestore document snapshot.
   factory Comment.fromJson(Map<String, dynamic> json, String commentId) {
     return Comment(
       commentId: commentId,
@@ -33,7 +29,6 @@ class Comment {
     );
   }
 
-  /// Converts this [Comment] to a Firestore-compatible map.
   Map<String, dynamic> toJson() {
     return {
       'userId': userId,

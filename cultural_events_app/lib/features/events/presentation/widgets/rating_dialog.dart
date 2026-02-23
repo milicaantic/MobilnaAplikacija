@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../core/theme/app_colors.dart';
 
 class RatingDialog extends StatefulWidget {
   final Function(int) onRatingSubmitted;
@@ -31,14 +32,14 @@ class _RatingDialogState extends State<RatingDialog> {
                 duration: const Duration(milliseconds: 180),
                 decoration: BoxDecoration(
                   color: selected
-                      ? Colors.amber.withValues(alpha: 0.2)
+                      ? AppColors.warning.withValues(alpha: 0.2)
                       : Colors.transparent,
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: IconButton(
                   icon: Icon(
                     selected ? Icons.star_rounded : Icons.star_border_rounded,
-                    color: Colors.amber[700],
+                    color: AppColors.warning,
                     size: 32,
                   ),
                   onPressed: () {

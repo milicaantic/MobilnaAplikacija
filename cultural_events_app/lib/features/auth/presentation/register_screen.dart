@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import '../../../core/validation/app_validators.dart';
 import '../data/auth_repository.dart';
 
 class RegisterScreen extends ConsumerStatefulWidget {
@@ -44,13 +46,28 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
             password: _passwordController.text.trim(),
             name: _nameController.text.trim(),
           );
-      // GoRouter will handle the redirect
     } catch (e) {
-      setState(() {
-        _errorMessage = e.toString();
-        _isLoading = false;
-      });
+      if (!mounted) return;
+      setState(() => _errorMessage = _friendlyRegisterError(e));
+    } finally {
+      if (!mounted) return;
+      setState(() => _isLoading = false);
     }
+  }
+
+  String _friendlyRegisterError(Object error) {
+    if (error is FirebaseAuthException) {
+      if (error.code == 'email-already-in-use') {
+        return 'This email is already in use.';
+      }
+      if (error.code == 'invalid-email') {
+        return 'Please enter a valid email address.';
+      }
+      if (error.code == 'weak-password') {
+        return 'Password is too weak.';
+      }
+    }
+    return 'Registration failed. Please try again.';
   }
 
   @override
@@ -91,12 +108,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                             labelText: 'Full Name',
                             prefixIcon: Icon(Icons.person_outline),
                           ),
-                          validator: (value) {
-                            if (value == null || value.isEmpty) {
-                              return 'Please enter your name';
-                            }
-                            return null;
-                          },
+                          maxLength: AppValidators.nameMax,
+                          validator: AppValidators.validateName,
                         ),
                         const SizedBox(height: 14),
                         TextFormField(
@@ -106,15 +119,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                             prefixIcon: Icon(Icons.email_outlined),
                           ),
                           keyboardType: TextInputType.emailAddress,
-                          validator: (value) {
-                            if (value == null || value.isEmpty) {
-                              return 'Please enter your email';
-                            }
-                            if (!value.contains('@')) {
-                              return 'Please enter a valid email';
-                            }
-                            return null;
-                          },
+                          maxLength: AppValidators.emailMax,
+                          validator: AppValidators.validateEmail,
                         ),
                         const SizedBox(height: 14),
                         TextFormField(
@@ -124,15 +130,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                             prefixIcon: Icon(Icons.lock_outline),
                           ),
                           obscureText: true,
-                          validator: (value) {
-                            if (value == null || value.isEmpty) {
-                              return 'Please enter your password';
-                            }
-                            if (value.length < 6) {
-                              return 'Password must be at least 6 characters';
-                            }
-                            return null;
-                          },
+                          maxLength: AppValidators.passwordMax,
+                          validator: AppValidators.validatePassword,
                         ),
                         const SizedBox(height: 14),
                         TextFormField(
@@ -142,12 +141,12 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                             prefixIcon: Icon(Icons.verified_user_outlined),
                           ),
                           obscureText: true,
-                          validator: (value) {
-                            if (value != _passwordController.text) {
-                              return 'Passwords do not match';
-                            }
-                            return null;
-                          },
+                          maxLength: AppValidators.passwordMax,
+                          validator: (value) => AppValidators
+                              .validateConfirmPassword(
+                                value,
+                                _passwordController.text,
+                              ),
                         ),
                         AnimatedSwitcher(
                           duration: const Duration(milliseconds: 220),

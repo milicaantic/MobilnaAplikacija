@@ -23,6 +23,6 @@ Stream<AppUser?> currentUser(Ref ref) {
           });
     },
     error: (_, _) => Stream.value(null),
-    loading: () => Stream.value(null),
+    loading: () => const Stream<AppUser?>.empty(),
   );
 }

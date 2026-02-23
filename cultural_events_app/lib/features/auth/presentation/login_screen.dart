@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import '../../../core/validation/app_validators.dart';
 import '../data/auth_repository.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
@@ -39,13 +41,31 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             _emailController.text.trim(),
             _passwordController.text.trim(),
           );
-      // GoRouter will handle the redirect based on auth state
     } catch (e) {
-      setState(() {
-        _errorMessage = e.toString();
-        _isLoading = false;
-      });
+      if (!mounted) return;
+      setState(() => _errorMessage = _friendlyLoginError(e));
+    } finally {
+      if (!mounted) return;
+      setState(() => _isLoading = false);
     }
+  }
+
+  String _friendlyLoginError(Object error) {
+    if (error is FirebaseAuthException) {
+      const invalidCredentialCodes = {
+        'invalid-email',
+        'user-not-found',
+        'wrong-password',
+        'invalid-credential',
+      };
+      if (invalidCredentialCodes.contains(error.code)) {
+        return 'Invalid email or password.';
+      }
+      if (error.code == 'too-many-requests') {
+        return 'Too many attempts. Try again later.';
+      }
+    }
+    return 'Login failed. Please try again.';
   }
 
   @override
@@ -104,15 +124,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             prefixIcon: Icon(Icons.email_outlined),
                           ),
                           keyboardType: TextInputType.emailAddress,
-                          validator: (value) {
-                            if (value == null || value.isEmpty) {
-                              return 'Please enter your email';
-                            }
-                            if (!value.contains('@')) {
-                              return 'Please enter a valid email';
-                            }
-                            return null;
-                          },
+                          maxLength: AppValidators.emailMax,
+                          validator: AppValidators.validateEmail,
                         ),
                         const SizedBox(height: 16),
                         TextFormField(
@@ -122,15 +135,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             prefixIcon: Icon(Icons.lock_outline),
                           ),
                           obscureText: true,
-                          validator: (value) {
-                            if (value == null || value.isEmpty) {
-                              return 'Please enter your password';
-                            }
-                            if (value.length < 6) {
-                              return 'Password must be at least 6 characters';
-                            }
-                            return null;
-                          },
+                          maxLength: AppValidators.passwordMax,
+                          validator: AppValidators.validatePassword,
                         ),
                         AnimatedSwitcher(
                           duration: const Duration(milliseconds: 220),

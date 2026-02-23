@@ -32,11 +32,10 @@ class AuthRepository {
     );
 
     if (credential.user != null) {
-      // Create user document in Firestore
       await _firestore.collection('users').doc(credential.user!.uid).set({
         'name': name,
         'email': email,
-        'role': 'user', // Default role
+        'role': 'user', 
         'createdAt': FieldValue.serverTimestamp(),
       });
     }

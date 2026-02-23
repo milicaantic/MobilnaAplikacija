@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
+import '../../auth/domain/user_role.dart';
 import '../domain/event_model.dart';
 import '../domain/event_status.dart';
 import '../domain/comment.dart';
@@ -10,6 +11,35 @@ part 'event_repository.g.dart';
 
 class EventRepository {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+
+  Future<void> _assertUserCanInteractWithEvent(
+    String eventId,
+    String userId,
+  ) async {
+    final snapshots = await Future.wait([
+      _firestore.collection('events').doc(eventId).get(),
+      _firestore.collection('users').doc(userId).get(),
+    ]);
+
+    final eventSnapshot = snapshots[0];
+    final userSnapshot = snapshots[1];
+
+    if (!eventSnapshot.exists) {
+      throw Exception('Event not found.');
+    }
+
+    final eventData = eventSnapshot.data()!;
+    final userData = userSnapshot.data();
+    final eventStatus = eventData['status'] as String?;
+    final role = userData?['role'] as String?;
+
+    if (eventStatus != EventStatus.approved.name) {
+      throw Exception('Interaction is allowed only on approved events.');
+    }
+    if (role != UserRole.user.name && role != UserRole.admin.name) {
+      throw Exception('Only authenticated users can perform this action.');
+    }
+  }
 
   Stream<List<EventModel>> watchEvents({
     EventStatus? status,
@@ -55,18 +85,74 @@ class EventRepository {
   }
 
   Future<void> createEvent(EventModel event) async {
-    await _firestore.collection('events').add(event.toJson());
+    final eventRef = _firestore.collection('events').doc();
+    final categoryRef = _firestore.collection('categories').doc(event.categoryId);
+
+    await _firestore.runTransaction((tx) async {
+      final categorySnapshot = await tx.get(categoryRef);
+      if (!categorySnapshot.exists) {
+        throw Exception('Selected category does not exist.');
+      }
+
+      tx.set(eventRef, event.toJson());
+      tx.update(categoryRef, {'eventCount': FieldValue.increment(1)});
+    });
   }
 
   Future<void> updateEvent(EventModel event) async {
-    await _firestore
-        .collection('events')
-        .doc(event.eventId)
-        .update(event.toJson());
+    final eventRef = _firestore.collection('events').doc(event.eventId);
+
+    await _firestore.runTransaction((tx) async {
+      final existingEventSnapshot = await tx.get(eventRef);
+      if (!existingEventSnapshot.exists) {
+        throw Exception('Event not found.');
+      }
+
+      final existingEvent = existingEventSnapshot.data()!;
+      final previousCategoryId = existingEvent['categoryId'] as String?;
+      final newCategoryId = event.categoryId;
+
+      if (previousCategoryId != null && previousCategoryId != newCategoryId) {
+        final previousCategoryRef = _firestore
+            .collection('categories')
+            .doc(previousCategoryId);
+        final newCategoryRef = _firestore.collection('categories').doc(newCategoryId);
+
+        final previousCategorySnapshot = await tx.get(previousCategoryRef);
+        final newCategorySnapshot = await tx.get(newCategoryRef);
+
+        if (!previousCategorySnapshot.exists || !newCategorySnapshot.exists) {
+          throw Exception('Category not found.');
+        }
+
+        tx.update(previousCategoryRef, {'eventCount': FieldValue.increment(-1)});
+        tx.update(newCategoryRef, {'eventCount': FieldValue.increment(1)});
+      }
+
+      tx.update(eventRef, event.toJson());
+    });
   }
 
   Future<void> deleteEvent(String eventId) async {
-    await _firestore.collection('events').doc(eventId).delete();
+    final eventRef = _firestore.collection('events').doc(eventId);
+
+    await _firestore.runTransaction((tx) async {
+      final eventSnapshot = await tx.get(eventRef);
+      if (!eventSnapshot.exists) {
+        throw Exception('Event not found.');
+      }
+
+      final categoryId = eventSnapshot.data()?['categoryId'] as String?;
+      if (categoryId != null && categoryId.isNotEmpty) {
+        final categoryRef = _firestore.collection('categories').doc(categoryId);
+        final categorySnapshot = await tx.get(categoryRef);
+        if (categorySnapshot.exists) {
+          tx.update(categoryRef, {'eventCount': FieldValue.increment(-1)});
+        }
+      }
+
+      tx.delete(eventRef);
+    });
   }
 
   Future<void> updateEventStatus(
@@ -85,7 +171,6 @@ class EventRepository {
     await _firestore.collection('events').doc(eventId).update(data);
   }
 
-  // --- Registration ---
 
   Future<void> registerForEvent(
     String eventId,
@@ -96,6 +181,8 @@ class EventRepository {
     DateTime? eventTime,
     String? locationName,
   }) async {
+    await _assertUserCanInteractWithEvent(eventId, userId);
+
     await _firestore
         .collection('events')
         .doc(eventId)
@@ -153,8 +240,6 @@ class EventRepository {
         .map(
           (snapshot) => snapshot.docs.map((doc) {
             final data = doc.data();
-            // Since it's a collection group query, we can also extract eventId from the path if needed
-            // path: events/{eventId}/registrations/{userId}
             final pathSegments = doc.reference.path.split('/');
             final eventIdFromPath = pathSegments.length >= 2
                 ? pathSegments[1]
@@ -168,9 +253,10 @@ class EventRepository {
         );
   }
 
-  // --- Comments ---
 
   Future<void> addComment(String eventId, Comment comment) async {
+    await _assertUserCanInteractWithEvent(eventId, comment.userId);
+
     await _firestore
         .collection('events')
         .doc(eventId)
@@ -188,6 +274,8 @@ class EventRepository {
   }
 
   Future<void> updateComment(String eventId, Comment comment) async {
+    await _assertUserCanInteractWithEvent(eventId, comment.userId);
+
     await _firestore
         .collection('events')
         .doc(eventId)
@@ -210,9 +298,10 @@ class EventRepository {
         );
   }
 
-  // --- Ratings ---
 
   Future<void> rateEvent(String eventId, Rating rating) async {
+    await _assertUserCanInteractWithEvent(eventId, rating.userId);
+
     await _firestore
         .collection('events')
         .doc(eventId)

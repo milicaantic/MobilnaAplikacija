@@ -3,7 +3,6 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // ─── Helper Functions ───────────────────────────────────────────
     function isSignedIn() {
       return request.auth != null;
     }
@@ -16,111 +15,134 @@ service cloud.firestore {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
     }
 
+    function hasValidStorableRole(role) {
+      return role in ['user', 'admin'];
+    }
+
+    function isStandardUser() {
+      return isSignedIn() && getUserRole() == 'user';
+    }
+
+    function hasInteractiveRole() {
+      return isSignedIn() && hasValidStorableRole(getUserRole());
+    }
+
     function isAdmin() {
       return isSignedIn() && (request.auth.token.admin == true || getUserRole() == 'admin');
     }
 
-    // ─── users Collection ───────────────────────────────────────────
+    function eventStatus(eventId) {
+      return get(/databases/$(database)/documents/events/$(eventId)).data.status;
+    }
+
+    function isEventApproved(eventId) {
+      return eventStatus(eventId) == 'approved';
+    }
+
+    function isEventCountOnlyUpdate() {
+      let oldCount = resource.data.eventCount is int ? resource.data.eventCount : 0;
+      return request.resource.data.diff(resource.data).changedKeys().hasOnly(['eventCount'])
+             && request.resource.data.eventCount is int
+             && request.resource.data.eventCount >= 0
+             && (
+               request.resource.data.eventCount == oldCount + 1
+               || request.resource.data.eventCount == oldCount - 1
+             );
+    }
+
+    function isEventCreator() {
+      return isSignedIn() && request.auth.uid == resource.data.creatorId;
+    }
+
     match /users/{userId} {
-      // Anyone signed in can read any user profile.
       allow read: if isSignedIn();
 
-      // Users can create their own profile document on sign-up.
-      allow create: if isOwner(userId);
+      // Guest is only a runtime unauthenticated state and cannot be stored.
+      allow create: if isOwner(userId)
+                    && request.resource.data.role == 'user';
 
-      // Users can update their own profile (but not change their role).
-      allow update: if isOwner(userId) && !('role' in request.resource.data)
-                    || (isOwner(userId) && request.resource.data.role == resource.data.role)
-                    || isAdmin();
+      allow update: if (isOwner(userId)
+                      && hasValidStorableRole(resource.data.role)
+                      && request.resource.data.role == resource.data.role)
+                    || (isAdmin() && hasValidStorableRole(request.resource.data.role));
 
-      // Only admins can delete user profiles.
-      allow delete: if isAdmin();
+      allow delete: if isAdmin() || isOwner(userId);
     }
 
-    // ─── categories Collection ──────────────────────────────────────
     match /categories/{categoryId} {
-      // Anyone can read categories (needed for the feed).
       allow read: if true;
-
-      // Only admins can create, update, or delete categories.
-      allow create, update, delete: if isAdmin();
+      allow create: if isAdmin();
+      allow update: if isAdmin() || (isSignedIn() && isEventCountOnlyUpdate());
+      allow delete: if isAdmin() && resource.data.eventCount == 0;
     }
 
-    // ─── events Collection ──────────────────────────────────────────
     match /events/{eventId} {
-      // Read: approved events are public; owners and admins see all statuses.
       allow read: if resource.data.status == 'approved'
                   || (isSignedIn() && request.auth.uid == resource.data.creatorId)
                   || isAdmin();
 
-      // Create: must be signed in. Force status to 'pending'.
       allow create: if isSignedIn()
-                    && request.resource.data.status == 'pending'
-                    && request.resource.data.creatorId == request.auth.uid;
+                    && request.resource.data.creatorId == request.auth.uid
+                    && ((isStandardUser() && request.resource.data.status == 'pending')
+                        || (isAdmin() && request.resource.data.status in ['pending', 'approved']));
 
-      // Update: owner can update if still pending; admins can update anything.
       allow update: if isAdmin()
-                    || (isSignedIn()
-                        && request.auth.uid == resource.data.creatorId
-                        && resource.data.status == 'pending');
+                    || (isEventCreator()
+                        && request.resource.data.creatorId == resource.data.creatorId
+                        && (
+                          request.resource.data.status == resource.data.status
+                          || (resource.data.status == 'rejected'
+                              && request.resource.data.status == 'pending')
+                        )
+                        && request.resource.data.approvedBy == resource.data.approvedBy
+                        && request.resource.data.approvedAt == resource.data.approvedAt
+                        && request.resource.data.rejectedReason == resource.data.rejectedReason);
 
-      // Delete: owner can delete if pending; admins can delete any event.
-      allow delete: if isAdmin()
-                    || (isSignedIn()
-                        && request.auth.uid == resource.data.creatorId
-                        && resource.data.status == 'pending');
+      allow delete: if isAdmin() || isEventCreator();
 
-      // ─── comments Subcollection ─────────────────────────────────
       match /comments/{commentId} {
-        // Anyone signed in can read comments on approved events.
         allow read: if isSignedIn();
 
-        // Signed-in users can create comments (userId must match auth).
-        allow create: if isSignedIn()
+        allow create: if hasInteractiveRole()
+                      && isEventApproved(eventId)
                       && request.resource.data.userId == request.auth.uid;
 
-        // Comment owner can delete their own comment; admins can delete any.
         allow delete: if isSignedIn()
                       && (request.auth.uid == resource.data.userId || isAdmin());
 
-        // Comments are immutable — no updates allowed.
         allow update: if false;
       }
 
-      // ─── registrations Subcollection ────────────────────────────
       match /registrations/{userId} {
-        // Event creator and the registrant can read registrations.
         allow read: if isSignedIn();
 
-        // A user can only register themselves (doc ID must equal auth uid).
         allow create: if isOwner(userId)
+                      && hasInteractiveRole()
+                      && isEventApproved(eventId)
                       && request.resource.data.userId == request.auth.uid;
 
-        // A user can unregister themselves.
-        allow delete: if isOwner(userId);
+        allow delete: if isOwner(userId) || isAdmin();
 
-        // No updates to registrations.
         allow update: if false;
       }
 
-      // ─── ratings Subcollection ──────────────────────────────────
       match /ratings/{userId} {
-        // Anyone signed in can read ratings.
         allow read: if isSignedIn();
 
-        // A user can rate (doc ID must equal auth uid, rating 1–5).
         allow create: if isOwner(userId)
+                      && hasInteractiveRole()
+                      && isEventApproved(eventId)
                       && request.resource.data.userId == request.auth.uid
                       && request.resource.data.rating >= 1
                       && request.resource.data.rating <= 5;
 
-        // A user can update their own rating (still must be 1–5).
         allow update: if isOwner(userId)
+                      && hasInteractiveRole()
+                      && isEventApproved(eventId)
                       && request.resource.data.rating >= 1
                       && request.resource.data.rating <= 5;
 
-        // A user can delete their own rating.
-        allow delete: if isOwner(userId);
+        allow delete: if isOwner(userId) || isAdmin();
       }
     }
   }

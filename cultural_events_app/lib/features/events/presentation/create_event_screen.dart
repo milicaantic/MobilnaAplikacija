@@ -9,9 +9,20 @@ import '../domain/event_model.dart';
 import '../domain/event_status.dart';
 import '../../auth/domain/user_role.dart';
 import '../../../core/services/location_service.dart';
+import '../../../core/validation/app_validators.dart';
 
 class CreateEventScreen extends ConsumerStatefulWidget {
-  const CreateEventScreen({super.key});
+  final String? editingEventId;
+  final EventModel? initialEvent;
+
+  const CreateEventScreen({
+    super.key,
+    this.editingEventId,
+    this.initialEvent,
+  });
+
+  bool get isEditMode =>
+      (editingEventId?.trim().isNotEmpty ?? false) || initialEvent != null;
 
   @override
   ConsumerState<CreateEventScreen> createState() => _CreateEventScreenState();
@@ -26,6 +37,8 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen> {
   DateTime _selectedDate = DateTime.now().add(const Duration(days: 1));
   String? _selectedCategoryId;
   bool _isLoading = false;
+  bool _didPopulateForm = false;
+  EventModel? _editingBaseEvent;
 
   @override
   void dispose() {
@@ -39,6 +52,13 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen> {
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate() || _selectedCategoryId == null)
       return;
+    final dateValidation = AppValidators.validateUpcomingDate(_selectedDate);
+    if (dateValidation != null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(dateValidation)));
+      return;
+    }
 
     setState(() => _isLoading = true);
 
@@ -54,51 +74,105 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen> {
     }
 
     final isAdmin = userProfile.role == UserRole.admin;
+    final editingId =
+        _editingBaseEvent?.eventId ??
+        widget.editingEventId?.trim() ??
+        widget.initialEvent?.eventId;
+    final isEditMode = editingId != null && editingId.isNotEmpty;
+    final shouldResetRejectedToPending =
+        isEditMode && _editingBaseEvent?.status == EventStatus.rejected;
 
-    double? lat;
-    double? lng;
+    if (isEditMode) {
+      _editingBaseEvent ??= widget.initialEvent;
+
+      if (_editingBaseEvent == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Unable to load the event for editing.')),
+        );
+        setState(() => _isLoading = false);
+        return;
+      }
+      final canEdit =
+          _editingBaseEvent!.creatorId == user.uid || userProfile.role.isAdmin;
+      if (!canEdit) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Only the event owner or an admin can edit this event.'),
+          ),
+        );
+        setState(() => _isLoading = false);
+        return;
+      }
+    }
+
+    final existingLat = (_editingBaseEvent?.location['lat'] as num?)?.toDouble();
+    final existingLng = (_editingBaseEvent?.location['lng'] as num?)?.toDouble();
+    double? lat = existingLat;
+    double? lng = existingLng;
 
     try {
       final coords = await ref
           .read(locationServiceProvider)
-          .getCoordinates(_locationController.text);
+          .getCoordinates(_locationController.text.trim());
       lat = coords['lat'];
       lng = coords['lng'];
+      if (lat == null || lng == null) {
+        throw Exception('Location not found');
+      }
     } catch (e) {
-      // Allow event creation but warn the user
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Warning: Weather info might be unavailable. $e'),
-            backgroundColor: Colors.orange,
+          const SnackBar(
+            content: Text(
+              'Invalid location. Please enter a valid location that can be geocoded.',
+            ),
           ),
         );
       }
+      if (mounted) setState(() => _isLoading = false);
+      return;
     }
 
     final event = EventModel(
-      eventId: '', // Firestore sets this
-      title: _titleController.text,
-      description: _descriptionController.text,
+      eventId: editingId ?? '', 
+      title: _titleController.text.trim(),
+      description: _descriptionController.text.trim(),
       categoryId: _selectedCategoryId!,
       time: _selectedDate,
       location: {
-        'name': _locationController.text,
-        if (lat != null) 'lat': lat,
-        if (lng != null) 'lng': lng,
+        'name': _locationController.text.trim(),
       },
-      creatorId: user.uid,
-      creatorName: userProfile.name,
-      creatorPhotoUrl: userProfile.photoUrl,
-      status: isAdmin ? EventStatus.approved : EventStatus.pending,
-      imageUrl: _imageUrlController.text.isEmpty
+      creatorId: _editingBaseEvent?.creatorId ?? user.uid,
+      creatorName: _editingBaseEvent?.creatorName ?? userProfile.name,
+      creatorPhotoUrl: _editingBaseEvent?.creatorPhotoUrl ?? userProfile.photoUrl,
+      status: shouldResetRejectedToPending
+          ? EventStatus.pending
+          : (_editingBaseEvent?.status ??
+                (isAdmin ? EventStatus.approved : EventStatus.pending)),
+      approvedBy: _editingBaseEvent?.approvedBy,
+      approvedAt: _editingBaseEvent?.approvedAt,
+      rejectedReason: _editingBaseEvent?.rejectedReason,
+      imageUrl: _imageUrlController.text.trim().isEmpty
           ? null
-          : _imageUrlController.text,
-      createdAt: DateTime.now(),
+          : _imageUrlController.text.trim(),
+      createdAt: _editingBaseEvent?.createdAt ?? DateTime.now(),
     );
 
     try {
-      await ref.read(eventRepositoryProvider).createEvent(event);
+      if (isEditMode) {
+        await ref.read(eventRepositoryProvider).updateEvent(event);
+        if (shouldResetRejectedToPending && mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'This rejected event is now pending and awaiting approval.',
+              ),
+            ),
+          );
+        }
+      } else {
+        await ref.read(eventRepositoryProvider).createEvent(event);
+      }
       if (mounted) context.pop();
     } catch (e) {
       if (mounted) {
@@ -115,9 +189,45 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen> {
   Widget build(BuildContext context) {
     final categoriesAsync = ref.watch(categoriesStreamProvider);
     final role = ref.watch(currentUserProvider).value?.role;
+    final isEditMode = widget.isEditMode;
+    final editingEventId = widget.editingEventId?.trim();
+    EventModel? editingEvent;
+
+    if (isEditMode) {
+      if (editingEventId != null && editingEventId.isNotEmpty) {
+        final eventAsync = ref.watch(eventStreamProvider(editingEventId));
+        editingEvent = eventAsync.value ?? widget.initialEvent;
+
+        if (editingEvent == null) {
+          if (eventAsync.isLoading) {
+            return const Scaffold(
+              body: Center(child: CircularProgressIndicator()),
+            );
+          }
+          return const Scaffold(body: Center(child: Text('Event not found.')));
+        }
+      } else {
+        editingEvent = widget.initialEvent;
+      }
+
+      if (editingEvent == null) {
+        return const Scaffold(body: Center(child: Text('Event not found.')));
+      }
+
+      if (!_didPopulateForm) {
+        _didPopulateForm = true;
+        _editingBaseEvent = editingEvent;
+        _titleController.text = editingEvent.title;
+        _descriptionController.text = editingEvent.description;
+        _locationController.text = (editingEvent.location['name'] as String?) ?? '';
+        _imageUrlController.text = editingEvent.imageUrl ?? '';
+        _selectedDate = editingEvent.time;
+        _selectedCategoryId = editingEvent.categoryId;
+      }
+    }
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Create Event')),
+      appBar: AppBar(title: Text(isEditMode ? 'Edit Event' : 'Create Event')),
       body: SafeArea(
         child: Center(
           child: ConstrainedBox(
@@ -133,7 +243,9 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen> {
                       child: Padding(
                         padding: const EdgeInsets.all(16),
                         child: Text(
-                          role == UserRole.admin
+                          isEditMode
+                              ? 'Update event details and save your changes.'
+                              : role == UserRole.admin
                               ? 'Admin events are published immediately.'
                               : 'New events are submitted for admin approval.',
                           style: Theme.of(context).textTheme.bodyMedium,
@@ -147,8 +259,8 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen> {
                         labelText: 'Event Title',
                         prefixIcon: Icon(Icons.title_rounded),
                       ),
-                      validator: (val) =>
-                          val == null || val.isEmpty ? 'Required' : null,
+                      maxLength: AppValidators.titleMax,
+                      validator: AppValidators.validateTitle,
                     ),
                     const SizedBox(height: 14),
                     TextFormField(
@@ -157,27 +269,49 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen> {
                         labelText: 'Description',
                         prefixIcon: Icon(Icons.notes_rounded),
                       ),
+                      maxLength: AppValidators.descriptionMax,
                       maxLines: 4,
-                      validator: (val) =>
-                          val == null || val.isEmpty ? 'Required' : null,
+                      validator: AppValidators.validateDescription,
                     ),
                     const SizedBox(height: 14),
                     categoriesAsync.when(
-                      data: (categories) => DropdownButtonFormField<String>(
-                        value: _selectedCategoryId,
-                        hint: const Text('Select Category'),
-                        items: categories
-                            .map(
-                              (c) => DropdownMenuItem(
-                                value: c.categoryId,
-                                child: Text(c.name),
+                      data: (categories) {
+                        final selectedExists = _selectedCategoryId != null &&
+                            categories.any(
+                              (c) => c.categoryId == _selectedCategoryId,
+                            );
+
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            DropdownButtonFormField<String>(
+                              value: selectedExists ? _selectedCategoryId : null,
+                              hint: const Text('Select Category'),
+                              items: categories
+                                  .map(
+                                    (c) => DropdownMenuItem(
+                                      value: c.categoryId,
+                                      child: Text(c.name),
+                                    ),
+                                  )
+                                  .toList(),
+                              onChanged: (val) =>
+                                  setState(() => _selectedCategoryId = val),
+                              validator: (val) => val == null ? 'Required' : null,
+                            ),
+                            if (_selectedCategoryId != null && !selectedExists)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 8),
+                                child: Text(
+                                  'This event category is unavailable. Please select another category.',
+                                  style: TextStyle(
+                                    color: Theme.of(context).colorScheme.error,
+                                  ),
+                                ),
                               ),
-                            )
-                            .toList(),
-                        onChanged: (val) =>
-                            setState(() => _selectedCategoryId = val),
-                        validator: (val) => val == null ? 'Required' : null,
-                      ),
+                          ],
+                        );
+                      },
                       loading: () => const LinearProgressIndicator(),
                       error: (_, __) => const Text('Error loading categories'),
                     ),
@@ -224,8 +358,8 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen> {
                         labelText: 'Location Name',
                         prefixIcon: Icon(Icons.location_on_outlined),
                       ),
-                      validator: (val) =>
-                          val == null || val.isEmpty ? 'Required' : null,
+                      maxLength: AppValidators.locationMax,
+                      validator: AppValidators.validateLocation,
                     ),
                     const SizedBox(height: 14),
                     TextFormField(
@@ -236,6 +370,7 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen> {
                         prefixIcon: Icon(Icons.image_outlined),
                       ),
                       keyboardType: TextInputType.url,
+                      validator: AppValidators.validateImageUrl,
                     ),
                     const SizedBox(height: 24),
                     ElevatedButton.icon(
@@ -250,7 +385,9 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen> {
                               child: CircularProgressIndicator(strokeWidth: 2),
                             )
                           : Text(
-                              role == UserRole.admin
+                              isEditMode
+                                  ? 'Save Changes'
+                                  : role == UserRole.admin
                                   ? 'Create Event'
                                   : 'Submit for Approval',
                             ),

@@ -23,6 +23,7 @@ class CategoryRepository {
       'name': name,
       'description': description,
       'isActive': true,
+      'eventCount': 0,
     });
   }
 
@@ -34,6 +35,19 @@ class CategoryRepository {
   }
 
   Future<void> deleteCategory(String categoryId) async {
+    final hasEvents = await _firestore
+        .collection('events')
+        .where('categoryId', isEqualTo: categoryId)
+        .limit(1)
+        .get()
+        .then((snapshot) => snapshot.docs.isNotEmpty);
+
+    if (hasEvents) {
+      throw Exception(
+        'This category cannot be deleted because there are events assigned to it.',
+      );
+    }
+
     await _firestore.collection('categories').doc(categoryId).delete();
   }
 }

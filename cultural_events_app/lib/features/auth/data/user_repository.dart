@@ -32,6 +32,9 @@ class UserRepository {
   }
 
   Future<void> updateUserRole(String uid, UserRole role) async {
+    if (role == UserRole.guest) {
+      throw Exception('Guest is not a storable role.');
+    }
     await _firestore.collection('users').doc(uid).update({'role': role.name});
   }
 }

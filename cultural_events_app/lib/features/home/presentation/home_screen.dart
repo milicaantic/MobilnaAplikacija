@@ -152,14 +152,6 @@ class HomeScreen extends ConsumerWidget {
                   if (user.role == UserRole.admin) const SizedBox(height: 12),
                   if (user.role == UserRole.admin)
                     _HomeActionCard(
-                      title: 'Dashboard',
-                      description: 'Open approvals, category tools, and user control.',
-                      icon: Icons.admin_panel_settings_outlined,
-                      onTap: () => context.push('/admin'),
-                    ),
-                  if (user.role == UserRole.admin) const SizedBox(height: 12),
-                  if (user.role == UserRole.admin)
-                    _HomeActionCard(
                       title: 'My Events',
                       description: 'Manage events you created and their status.',
                       icon: Icons.event_note_outlined,
@@ -173,20 +165,20 @@ class HomeScreen extends ConsumerWidget {
                       icon: Icons.event_available_outlined,
                       onTap: () => context.push('/my-registrations'),
                     ),
+                  if (user.role == UserRole.admin) const SizedBox(height: 12),
+                  if (user.role == UserRole.admin)
+                    _HomeActionCard(
+                      title: 'Dashboard',
+                      description: 'Open approvals, category tools, and user control.',
+                      icon: Icons.admin_panel_settings_outlined,
+                      onTap: () => context.push('/admin'),
+                    ),
                   if (user.role != UserRole.admin)
                     _HomeActionCard(
                       title: 'Explore',
-                      description: 'Browse approved events and open details quickly.',
+                      description: 'Browse approved events visible to all users.',
                       icon: Icons.explore_outlined,
                       onTap: () => context.push('/events'),
-                    ),
-                  if (user.role != UserRole.admin) const SizedBox(height: 12),
-                  if (user.role != UserRole.admin)
-                    _HomeActionCard(
-                      title: 'My Registrations',
-                      description: 'Track upcoming events you have joined.',
-                      icon: Icons.event_available_outlined,
-                      onTap: () => context.push('/my-registrations'),
                     ),
                   if (user.role != UserRole.admin) const SizedBox(height: 12),
                   if (user.role != UserRole.admin)
@@ -195,6 +187,14 @@ class HomeScreen extends ConsumerWidget {
                       description: 'View events you created and their status.',
                       icon: Icons.event_note_outlined,
                       onTap: () => context.push('/my-events'),
+                    ),
+                  if (user.role != UserRole.admin) const SizedBox(height: 12),
+                  if (user.role != UserRole.admin)
+                    _HomeActionCard(
+                      title: 'My Registrations',
+                      description: 'Track upcoming events you have joined.',
+                      icon: Icons.event_available_outlined,
+                      onTap: () => context.push('/my-registrations'),
                     ),
                 ],
               ),

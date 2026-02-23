@@ -7,6 +7,8 @@ import '../../auth/domain/user_role.dart';
 import '../../auth/data/user_repository.dart';
 import '../../categories/data/category_repository.dart';
 import '../../categories/domain/category.dart';
+import '../../../core/theme/app_colors.dart';
+import '../../../core/validation/app_validators.dart';
 
 class AdminDashboardScreen extends ConsumerWidget {
   const AdminDashboardScreen({super.key});
@@ -108,26 +110,34 @@ class _UserManagementView extends ConsumerWidget {
                   ),
                 ],
               ),
-              trailing: PopupMenuButton<UserRole>(
-                initialValue: user.role,
-                onSelected: (role) async {
-                  await ref
-                      .read(userRepositoryProvider)
-                      .updateUserRole(user.uid, role);
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Updated ${user.name} to ${role.name}')),
-                    );
-                  }
-                },
-                itemBuilder: (context) => UserRole.values
-                    .map(
-                      (r) => PopupMenuItem(
-                        value: r,
-                        child: Text(r.name.toUpperCase()),
-                      ),
-                    )
-                    .toList(),
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  PopupMenuButton<UserRole>(
+                    initialValue: user.role,
+                    onSelected: (role) async {
+                      await ref
+                          .read(userRepositoryProvider)
+                          .updateUserRole(user.uid, role);
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('Updated ${user.name} to ${role.name}'),
+                          ),
+                        );
+                      }
+                    },
+                    itemBuilder: (context) => UserRole.values
+                        .where((r) => r == UserRole.user || r == UserRole.admin)
+                        .map(
+                          (r) => PopupMenuItem(
+                            value: r,
+                            child: Text(r.name.toUpperCase()),
+                          ),
+                        )
+                        .toList(),
+                  ),
+                ],
               ),
             ),
           );
@@ -181,9 +191,7 @@ class _ApprovalQueue extends ConsumerWidget {
           itemBuilder: (context, index) {
             final event = events[index];
             return Card(
-              color: Theme.of(context).colorScheme.primaryContainer.withValues(
-                alpha: 0.18,
-              ),
+              color: AppColors.warning.withValues(alpha: 0.12),
               child: ListTile(
                 contentPadding: const EdgeInsets.symmetric(
                   horizontal: 14,
@@ -234,9 +242,9 @@ class _ApprovalQueue extends ConsumerWidget {
 Color _getRoleColor(UserRole role) {
   switch (role) {
     case UserRole.admin:
-      return const Color(0xFFB26A00);
+      return AppColors.warning;
     case UserRole.user:
-      return const Color(0xFF1A7F72);
+      return AppColors.secondary;
     case UserRole.guest:
       return const Color(0xFF637381);
   }
@@ -251,6 +259,7 @@ class _CategoryQuickAccess extends ConsumerStatefulWidget {
 }
 
 class _CategoryQuickAccessState extends ConsumerState<_CategoryQuickAccess> {
+  final _createCategoryFormKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _descriptionController = TextEditingController();
 
@@ -262,15 +271,12 @@ class _CategoryQuickAccessState extends ConsumerState<_CategoryQuickAccess> {
   }
 
   void _addCategory() {
-    final name = _nameController.text.trim();
-    final description = _descriptionController.text.trim();
-    if (name.isEmpty || description.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Enter category name and description.')),
-      );
+    if (!_createCategoryFormKey.currentState!.validate()) {
       return;
     }
 
+    final name = _nameController.text.trim();
+    final description = _descriptionController.text.trim();
     ref.read(categoryRepositoryProvider).addCategory(name, description);
     _nameController.clear();
     _descriptionController.clear();
@@ -283,25 +289,35 @@ class _CategoryQuickAccessState extends ConsumerState<_CategoryQuickAccess> {
     required BuildContext context,
     required Category category,
   }) {
+    final formKey = GlobalKey<FormState>();
     final nameController = TextEditingController(text: category.name);
     final descController = TextEditingController(text: category.description);
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Edit Category'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: nameController,
-              decoration: const InputDecoration(labelText: 'Name'),
-            ),
-            const SizedBox(height: 10),
-            TextField(
-              controller: descController,
-              decoration: const InputDecoration(labelText: 'Description'),
-            ),
-          ],
+        content: Form(
+          key: formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextFormField(
+                controller: nameController,
+                maxLength: AppValidators.categoryNameMax,
+                validator: AppValidators.validateCategoryName,
+                decoration: const InputDecoration(labelText: 'Name'),
+              ),
+              const SizedBox(height: 10),
+              TextFormField(
+                controller: descController,
+                maxLength: AppValidators.descriptionMax,
+                minLines: 2,
+                maxLines: 3,
+                validator: AppValidators.validateDescription,
+                decoration: const InputDecoration(labelText: 'Description'),
+              ),
+            ],
+          ),
         ),
         actions: [
           TextButton(
@@ -310,6 +326,8 @@ class _CategoryQuickAccessState extends ConsumerState<_CategoryQuickAccess> {
           ),
           ElevatedButton(
             onPressed: () {
+              if (!formKey.currentState!.validate()) return;
+
               ref
                   .read(categoryRepositoryProvider)
                   .updateCategory(
@@ -318,6 +336,7 @@ class _CategoryQuickAccessState extends ConsumerState<_CategoryQuickAccess> {
                       name: nameController.text.trim(),
                       description: descController.text.trim(),
                       isActive: category.isActive,
+                      eventCount: category.eventCount,
                     ),
                   );
               Navigator.pop(context);
@@ -329,7 +348,18 @@ class _CategoryQuickAccessState extends ConsumerState<_CategoryQuickAccess> {
     );
   }
 
-  void _confirmDelete(BuildContext context, String categoryId) {
+  void _confirmDelete(BuildContext context, int eventCount, String categoryId) {
+    if (eventCount > 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'This category cannot be deleted because there are events assigned to it.',
+          ),
+        ),
+      );
+      return;
+    }
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -342,12 +372,26 @@ class _CategoryQuickAccessState extends ConsumerState<_CategoryQuickAccess> {
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
-              foregroundColor: Colors.white,
+              backgroundColor: AppColors.danger.withValues(alpha: 0.14),
+              foregroundColor: AppColors.danger,
+              side: const BorderSide(color: AppColors.danger),
             ),
-            onPressed: () {
-              ref.read(categoryRepositoryProvider).deleteCategory(categoryId);
-              Navigator.pop(context);
+            onPressed: () async {
+              try {
+                await ref.read(categoryRepositoryProvider).deleteCategory(categoryId);
+                if (context.mounted) Navigator.pop(context);
+              } catch (_) {
+                if (context.mounted) {
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text(
+                        'This category cannot be deleted because there are events assigned to it.',
+                      ),
+                    ),
+                  );
+                }
+              }
             },
             child: const Text('Delete'),
           ),
@@ -366,38 +410,47 @@ class _CategoryQuickAccessState extends ConsumerState<_CategoryQuickAccess> {
         Card(
           child: Padding(
             padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text(
-                  'Create Category',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
+            child: Form(
+              key: _createCategoryFormKey,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    'Create Category',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: _nameController,
-                  decoration: const InputDecoration(
-                    labelText: 'Name',
-                    prefixIcon: Icon(Icons.label_outline),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: _nameController,
+                    maxLength: AppValidators.categoryNameMax,
+                    validator: AppValidators.validateCategoryName,
+                    decoration: const InputDecoration(
+                      labelText: 'Name',
+                      prefixIcon: Icon(Icons.label_outline),
+                    ),
                   ),
-                ),
-                const SizedBox(height: 10),
-                TextField(
-                  controller: _descriptionController,
-                  decoration: const InputDecoration(
-                    labelText: 'Description',
-                    prefixIcon: Icon(Icons.description_outlined),
+                  const SizedBox(height: 10),
+                  TextFormField(
+                    controller: _descriptionController,
+                    maxLength: AppValidators.descriptionMax,
+                    minLines: 2,
+                    maxLines: 3,
+                    validator: AppValidators.validateDescription,
+                    decoration: const InputDecoration(
+                      labelText: 'Description',
+                      prefixIcon: Icon(Icons.description_outlined),
+                    ),
                   ),
-                ),
-                const SizedBox(height: 14),
-                ElevatedButton.icon(
-                  onPressed: _addCategory,
-                  icon: const Icon(Icons.add),
-                  label: const Text('Add Category'),
-                ),
-              ],
+                  const SizedBox(height: 14),
+                  ElevatedButton.icon(
+                    onPressed: _addCategory,
+                    icon: const Icon(Icons.add),
+                    label: const Text('Add Category'),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -448,8 +501,15 @@ class _CategoryQuickAccessState extends ConsumerState<_CategoryQuickAccess> {
                           ),
                           IconButton(
                             icon: const Icon(Icons.delete_outline),
+                            tooltip: category.eventCount > 0
+                                ? 'Cannot delete category with assigned events'
+                                : 'Delete category',
                             onPressed: () =>
-                                _confirmDelete(context, category.categoryId),
+                                _confirmDelete(
+                                  context,
+                                  category.eventCount,
+                                  category.categoryId,
+                                ),
                           ),
                         ],
                       ),

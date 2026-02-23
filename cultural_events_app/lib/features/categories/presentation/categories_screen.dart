@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../domain/category.dart';
 import '../data/category_repository.dart';
 import '../../../core/providers/current_user_provider.dart';
+import '../../../core/theme/app_colors.dart';
+import '../../../core/validation/app_validators.dart';
 import '../../auth/domain/user_role.dart';
 
 class CategoriesScreen extends ConsumerWidget {
@@ -62,9 +64,13 @@ class CategoriesScreen extends ConsumerWidget {
                                 ),
                                 IconButton(
                                   icon: const Icon(Icons.delete_outline),
+                                  tooltip: category.eventCount > 0
+                                      ? 'Cannot delete category with assigned events'
+                                      : 'Delete category',
                                   onPressed: () => _confirmDelete(
                                     context,
                                     ref,
+                                    category.eventCount,
                                     category.categoryId,
                                   ),
                                 ),
@@ -97,6 +103,7 @@ class CategoriesScreen extends ConsumerWidget {
     WidgetRef ref, {
     Category? category,
   }) {
+    final formKey = GlobalKey<FormState>();
     final nameController = TextEditingController(text: category?.name);
     final descController = TextEditingController(text: category?.description);
 
@@ -104,18 +111,27 @@ class CategoriesScreen extends ConsumerWidget {
       context: context,
       builder: (context) => AlertDialog(
         title: Text(category == null ? 'Add Category' : 'Edit Category'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: nameController,
-              decoration: const InputDecoration(labelText: 'Name'),
-            ),
-            TextField(
-              controller: descController,
-              decoration: const InputDecoration(labelText: 'Description'),
-            ),
-          ],
+        content: Form(
+          key: formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextFormField(
+                controller: nameController,
+                maxLength: AppValidators.categoryNameMax,
+                validator: AppValidators.validateCategoryName,
+                decoration: const InputDecoration(labelText: 'Name'),
+              ),
+              TextFormField(
+                controller: descController,
+                minLines: 2,
+                maxLines: 3,
+                maxLength: AppValidators.descriptionMax,
+                validator: AppValidators.validateDescription,
+                decoration: const InputDecoration(labelText: 'Description'),
+              ),
+            ],
+          ),
         ),
         actions: [
           TextButton(
@@ -124,19 +140,25 @@ class CategoriesScreen extends ConsumerWidget {
           ),
           ElevatedButton(
             onPressed: () {
+              if (!formKey.currentState!.validate()) return;
+
               if (category == null) {
                 ref
                     .read(categoryRepositoryProvider)
-                    .addCategory(nameController.text, descController.text);
+                    .addCategory(
+                      nameController.text.trim(),
+                      descController.text.trim(),
+                    );
               } else {
                 ref
                     .read(categoryRepositoryProvider)
                     .updateCategory(
                       Category(
                         categoryId: category.categoryId,
-                        name: nameController.text,
-                        description: descController.text,
+                        name: nameController.text.trim(),
+                        description: descController.text.trim(),
                         isActive: category.isActive,
+                        eventCount: category.eventCount,
                       ),
                     );
               }
@@ -149,7 +171,23 @@ class CategoriesScreen extends ConsumerWidget {
     );
   }
 
-  void _confirmDelete(BuildContext context, WidgetRef ref, String categoryId) {
+  void _confirmDelete(
+    BuildContext context,
+    WidgetRef ref,
+    int eventCount,
+    String categoryId,
+  ) {
+    if (eventCount > 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'This category cannot be deleted because there are events assigned to it.',
+          ),
+        ),
+      );
+      return;
+    }
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -162,12 +200,26 @@ class CategoriesScreen extends ConsumerWidget {
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
-              foregroundColor: Colors.white,
+              backgroundColor: AppColors.danger.withValues(alpha: 0.14),
+              foregroundColor: AppColors.danger,
+              side: const BorderSide(color: AppColors.danger),
             ),
-            onPressed: () {
-              ref.read(categoryRepositoryProvider).deleteCategory(categoryId);
-              Navigator.pop(context);
+            onPressed: () async {
+              try {
+                await ref.read(categoryRepositoryProvider).deleteCategory(categoryId);
+                if (context.mounted) Navigator.pop(context);
+              } catch (_) {
+                if (context.mounted) {
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text(
+                        'This category cannot be deleted because there are events assigned to it.',
+                      ),
+                    ),
+                  );
+                }
+              }
             },
             child: const Text('Delete'),
           ),

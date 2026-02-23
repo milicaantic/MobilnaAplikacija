@@ -1,16 +1,11 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-/// Represents a user's registration for an event.
-///
-/// Maps to the `events/{eventId}/registrations` subcollection.
-/// The document ID is the user's [userId], ensuring one registration per user.
 class Registration {
   final String eventId;
   final String userId;
   final String userName;
   final String? userPhotoUrl;
   final DateTime registeredAt;
-  // Denormalized event data for "My Registrations" screen
   final String? eventTitle;
   final DateTime? eventTime;
   final String? locationName;
@@ -26,7 +21,6 @@ class Registration {
     this.locationName,
   });
 
-  /// Creates a [Registration] from a Firestore document snapshot.
   factory Registration.fromJson(Map<String, dynamic> json, String userId) {
     return Registration(
       eventId: json['eventId'] as String? ?? '',
@@ -42,7 +36,6 @@ class Registration {
     );
   }
 
-  /// Converts this [Registration] to a Firestore-compatible map.
   Map<String, dynamic> toJson() {
     return {
       'eventId': eventId,

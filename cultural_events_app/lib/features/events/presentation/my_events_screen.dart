@@ -5,6 +5,7 @@ import '../data/event_repository.dart';
 import '../domain/event_model.dart';
 import '../domain/event_status.dart';
 import '../../../core/providers/current_user_provider.dart';
+import '../../../core/theme/app_colors.dart';
 
 class MyEventsScreen extends ConsumerWidget {
   const MyEventsScreen({super.key});
@@ -65,7 +66,7 @@ class MyEventsScreen extends ConsumerWidget {
                               ),
                               const SizedBox(height: 8),
                               const Text(
-                                "Share your first cultural event with the world!",
+                                "Share your cultural events with the world!",
                                 textAlign: TextAlign.center,
                               ),
                             ],
@@ -82,7 +83,10 @@ class MyEventsScreen extends ConsumerWidget {
                       separatorBuilder: (_, __) => const SizedBox(height: 16),
                       itemBuilder: (context, index) {
                         final event = events[index];
-                        return _MyEventCard(event: event);
+                        return _MyEventCard(
+                          event: event,
+                          onDelete: () => _confirmDeleteEvent(context, ref, event),
+                        );
                       },
                     );
                   },
@@ -107,7 +111,9 @@ class MyEventsScreen extends ConsumerWidget {
 
 class _MyEventCard extends StatelessWidget {
   final EventModel event;
-  const _MyEventCard({required this.event});
+  final VoidCallback onDelete;
+
+  const _MyEventCard({required this.event, required this.onDelete});
 
   @override
   Widget build(BuildContext context) {
@@ -166,13 +172,75 @@ class _MyEventCard extends StatelessWidget {
                   ],
                 ),
               ),
-              _StatusBadge(status: event.status),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IconButton(
+                    tooltip: 'Edit Event',
+                    icon: const Icon(Icons.edit_outlined),
+                    onPressed: () => context.push(
+                      '/create-event?editId=${event.eventId}',
+                      extra: event,
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: 'Delete Event',
+                    icon: const Icon(Icons.delete_outline),
+                    color: AppColors.danger,
+                    onPressed: onDelete,
+                  ),
+                  _StatusBadge(status: event.status),
+                ],
+              ),
             ],
           ),
         ),
       ),
     );
   }
+}
+
+void _confirmDeleteEvent(
+  BuildContext context,
+  WidgetRef ref,
+  EventModel event,
+) {
+  showDialog(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: const Text('Delete Event?'),
+      content: const Text('This action cannot be undone.'),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        ElevatedButton(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppColors.danger.withValues(alpha: 0.14),
+            foregroundColor: AppColors.danger,
+            side: const BorderSide(color: AppColors.danger),
+          ),
+          onPressed: () async {
+            try {
+              await ref.read(eventRepositoryProvider).deleteEvent(event.eventId);
+              if (context.mounted) Navigator.pop(context);
+            } catch (_) {
+              if (context.mounted) {
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('You are not allowed to delete this event.'),
+                  ),
+                );
+              }
+            }
+          },
+          child: const Text('Delete'),
+        ),
+      ],
+    ),
+  );
 }
 
 class _StatusBadge extends StatelessWidget {
@@ -184,13 +252,13 @@ class _StatusBadge extends StatelessWidget {
     Color color;
     switch (status) {
       case EventStatus.pending:
-        color = Colors.orange;
+        color = AppColors.warning;
         break;
       case EventStatus.approved:
-        color = Colors.green;
+        color = AppColors.success;
         break;
       case EventStatus.rejected:
-        color = Colors.red;
+        color = AppColors.danger;
         break;
     }
     return Container(

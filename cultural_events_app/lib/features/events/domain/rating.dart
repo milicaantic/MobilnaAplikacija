@@ -1,12 +1,9 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-/// Represents a user's rating of an event.
-///
-/// Maps to the `events/{eventId}/ratings` subcollection.
-/// The document ID is the user's [userId], ensuring one rating per user.
+
 class Rating {
   final String userId;
-  final int rating; // 1–5
+  final int rating; 
   final DateTime timestamp;
 
   const Rating({
@@ -15,7 +12,6 @@ class Rating {
     required this.timestamp,
   });
 
-  /// Creates a [Rating] from a Firestore document snapshot.
   factory Rating.fromJson(Map<String, dynamic> json, String userId) {
     return Rating(
       userId: userId,
@@ -24,7 +20,6 @@ class Rating {
     );
   }
 
-  /// Converts this [Rating] to a Firestore-compatible map.
   Map<String, dynamic> toJson() {
     return {
       'userId': userId,

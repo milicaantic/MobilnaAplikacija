@@ -1,10 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'event_status.dart';
 
-/// Represents a cultural event.
-///
-/// Maps to the `events` top-level Firestore collection.
-/// Contains denormalized creator data to avoid extra reads on the feed.
 class EventModel {
   final String eventId;
   final String title;
@@ -12,7 +8,7 @@ class EventModel {
   final String categoryId;
   final DateTime time;
   final Map<String, dynamic>
-  location; // e.g. { 'name': '...', 'lat': ..., 'lng': ... }
+  location; 
   final String creatorId;
   final String creatorName;
   final String? creatorPhotoUrl;
@@ -45,7 +41,6 @@ class EventModel {
     required this.createdAt,
   });
 
-  /// Creates an [EventModel] from a Firestore document snapshot.
   factory EventModel.fromJson(Map<String, dynamic> json, String eventId) {
     return EventModel(
       eventId: eventId,
@@ -73,7 +68,6 @@ class EventModel {
     );
   }
 
-  /// Converts this [EventModel] to a Firestore-compatible map.
   Map<String, dynamic> toJson() {
     return {
       'title': title,
@@ -95,7 +89,6 @@ class EventModel {
     };
   }
 
-  /// Creates a copy of this [EventModel] with the given fields replaced.
   EventModel copyWith({
     String? title,
     String? description,

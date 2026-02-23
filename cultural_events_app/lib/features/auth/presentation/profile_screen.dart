@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/providers/current_user_provider.dart';
+import '../../../core/theme/app_colors.dart';
+import '../../../core/validation/app_validators.dart';
 import '../data/auth_repository.dart';
 import '../data/user_repository.dart';
 
@@ -12,6 +14,7 @@ class ProfileScreen extends ConsumerStatefulWidget {
 }
 
 class _ProfileScreenState extends ConsumerState<ProfileScreen> {
+  final _editFormKey = GlobalKey<FormState>();
   bool _isEditing = false;
   late TextEditingController _nameController;
   late TextEditingController _photoUrlController;
@@ -38,12 +41,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   }
 
   Future<void> _saveProfile(String uid) async {
+    if (!_editFormKey.currentState!.validate()) return;
+
     await ref
         .read(userRepositoryProvider)
         .updateUserProfile(
           uid,
-          name: _nameController.text,
-          photoUrl: _photoUrlController.text,
+          name: _nameController.text.trim(),
+          photoUrl: _photoUrlController.text.trim(),
         );
     setState(() => _isEditing = false);
     if (mounted) {
@@ -163,19 +168,29 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 ),
                 const SizedBox(height: 16),
                 if (_isEditing) ...[
-                  TextField(
-                    controller: _nameController,
-                    decoration: const InputDecoration(
-                      labelText: 'Name',
-                      prefixIcon: Icon(Icons.person_outline),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: _photoUrlController,
-                    decoration: const InputDecoration(
-                      labelText: 'Photo URL',
-                      prefixIcon: Icon(Icons.image_outlined),
+                  Form(
+                    key: _editFormKey,
+                    child: Column(
+                      children: [
+                        TextFormField(
+                          controller: _nameController,
+                          maxLength: AppValidators.nameMax,
+                          validator: AppValidators.validateName,
+                          decoration: const InputDecoration(
+                            labelText: 'Name',
+                            prefixIcon: Icon(Icons.person_outline),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        TextFormField(
+                          controller: _photoUrlController,
+                          validator: AppValidators.validateImageUrl,
+                          decoration: const InputDecoration(
+                            labelText: 'Photo URL',
+                            prefixIcon: Icon(Icons.image_outlined),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                   const SizedBox(height: 10),
@@ -184,7 +199,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
                 ],
-                const SizedBox(height: 18),
+                const SizedBox(height: 10),
                 SizedBox(
                   width: double.infinity,
                   child: OutlinedButton.icon(
@@ -194,8 +209,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     icon: const Icon(Icons.logout),
                     label: const Text('Logout'),
                     style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.red,
-                      side: const BorderSide(color: Colors.red),
+                      foregroundColor: AppColors.danger,
+                      side: const BorderSide(color: AppColors.danger),
                     ),
                   ),
                 ),

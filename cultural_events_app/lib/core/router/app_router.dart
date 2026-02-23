@@ -40,6 +40,21 @@ final routerProvider = Provider<GoRouter>((ref) {
             _buildPage(state, const EventsScreen(), fromBottom: false),
       ),
       GoRoute(
+        path: '/events/:eventId/edit',
+        pageBuilder: (context, state) {
+          final eventId = state.pathParameters['eventId']!;
+          final event = state.extra as EventModel?;
+          return _buildPage(
+            state,
+            CreateEventScreen(
+              editingEventId: eventId,
+              initialEvent: event,
+            ),
+            fromBottom: true,
+          );
+        },
+      ),
+      GoRoute(
         path: '/events/:eventId',
         pageBuilder: (context, state) {
           final eventId = state.pathParameters['eventId']!;
@@ -59,11 +74,18 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/create-event',
-        pageBuilder: (context, state) => _buildPage(
-          state,
-          const CreateEventScreen(),
-          fromBottom: true,
-        ),
+        pageBuilder: (context, state) {
+          final editId = state.uri.queryParameters['editId'];
+          final event = state.extra as EventModel?;
+          return _buildPage(
+            state,
+            CreateEventScreen(
+              editingEventId: editId,
+              initialEvent: event,
+            ),
+            fromBottom: true,
+          );
+        },
       ),
       GoRoute(
         path: '/categories',

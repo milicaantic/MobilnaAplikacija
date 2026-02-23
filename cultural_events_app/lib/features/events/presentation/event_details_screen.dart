@@ -12,6 +12,8 @@ import '../../auth/domain/user_role.dart';
 import '../domain/comment.dart';
 import '../domain/rating.dart';
 import 'widgets/rating_dialog.dart';
+import '../../../core/validation/app_validators.dart';
+import '../../../core/theme/app_colors.dart';
 
 class EventDetailsScreen extends ConsumerWidget {
   final String eventId;
@@ -25,7 +27,6 @@ class EventDetailsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // Watch the event stream for real-time updates (avg rating, etc.)
     final eventAsync = ref.watch(eventStreamProvider(eventId));
     final event = eventAsync.value ?? initialEvent;
 
@@ -39,94 +40,101 @@ class EventDetailsScreen extends ConsumerWidget {
     final userAsync = ref.watch(currentUserProvider);
     final user = userAsync.value;
     final isAdmin = user?.role == UserRole.admin;
+    final isOwner = user?.uid == event.creatorId;
+    final canEditEvent = isOwner || isAdmin;
+    final canDeleteEvent = isOwner || isAdmin;
 
     return Scaffold(
-      body: CustomScrollView(
-        slivers: [
-          SliverAppBar(
-            expandedHeight: 320,
-            pinned: true,
-            stretch: true,
-            leading: context.canPop()
-                ? Padding(
-                    padding: const EdgeInsets.all(8),
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        color: Colors.black.withValues(alpha: 0.45),
-                        shape: BoxShape.circle,
-                      ),
-                      child: IconButton(
-                        icon: const Icon(Icons.arrow_back_ios_new_rounded),
-                        color: Colors.white,
-                        onPressed: () => context.pop(),
-                      ),
-                    ),
-                  )
-                : null,
-            flexibleSpace: FlexibleSpaceBar(
-              titlePadding: const EdgeInsetsDirectional.only(
-                start: 68,
-                end: 18,
-                bottom: 24,
-              ),
-              title: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                decoration: BoxDecoration(
-                  color: Colors.black.withValues(alpha: 0.46),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(
-                  event.title,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w800,
-                    fontSize: 22,
-                    color: Colors.white,
-                  ),
-                ),
-              ),
-              background: Hero(
-                tag: 'image-${event.eventId}',
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    if (event.imageUrl != null)
-                      Image.network(event.imageUrl!, fit: BoxFit.cover)
-                    else
-                      Container(
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                            colors: [
-                              Theme.of(context).colorScheme.primary,
-                              Theme.of(context).colorScheme.secondary,
-                            ],
+      body: SingleChildScrollView(
+        child: Column(
+          children: [
+            SizedBox(
+              height: 320,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  Hero(
+                    tag: 'image-${event.eventId}',
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        if (event.imageUrl != null)
+                          Image.network(event.imageUrl!, fit: BoxFit.cover)
+                        else
+                          Container(
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                                colors: [
+                                  Theme.of(context).colorScheme.primary,
+                                  Theme.of(context).colorScheme.secondary,
+                                ],
+                              ),
+                            ),
+                            child: const Icon(
+                              Icons.event,
+                              size: 80,
+                              color: Colors.white24,
+                            ),
+                          ),
+                        const DecoratedBox(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.bottomCenter,
+                              end: Alignment.topCenter,
+                              colors: [Colors.black54, Colors.transparent],
+                            ),
                           ),
                         ),
-                        child: const Icon(
-                          Icons.event,
-                          size: 80,
-                          color: Colors.white24,
+                      ],
+                    ),
+                  ),
+                  if (context.canPop())
+                    Positioned(
+                      left: 8,
+                      top: MediaQuery.of(context).padding.top + 8,
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.45),
+                          shape: BoxShape.circle,
                         ),
-                      ),
-                    const DecoratedBox(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.bottomCenter,
-                          end: Alignment.topCenter,
-                          colors: [Colors.black54, Colors.transparent],
+                        child: IconButton(
+                          icon: const Icon(Icons.arrow_back_ios_new_rounded),
+                          color: Colors.white,
+                          onPressed: () => context.pop(),
                         ),
                       ),
                     ),
-                  ],
-                ),
+                  PositionedDirectional(
+                    start: 68,
+                    end: 18,
+                    bottom: 24,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.46),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        event.title,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w800,
+                          fontSize: 22,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
-          ),
-          SliverToBoxAdapter(
-            child: Padding(
+            Padding(
               padding: const EdgeInsets.fromLTRB(18, 16, 18, 24),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -155,35 +163,77 @@ class EventDetailsScreen extends ConsumerWidget {
                           ),
                         ),
                       ),
-                      if (isAdmin && event.status == EventStatus.pending)
+                      if (canDeleteEvent ||
+                          canEditEvent ||
+                          (isAdmin && event.status == EventStatus.pending))
                         Row(
                           children: [
-                            IconButton.filled(
-                              icon: const Icon(Icons.check),
-                              onPressed: () => _moderate(
-                                ref,
-                                context,
-                                event.eventId,
-                                EventStatus.approved,
+                            if (canEditEvent)
+                              IconButton.filledTonal(
+                                icon: const Icon(Icons.edit_outlined),
+                                tooltip: 'Edit event',
+                                onPressed: () => context.push(
+                                  '/create-event?editId=${event.eventId}',
+                                  extra: event,
+                                ),
                               ),
-                              style: IconButton.styleFrom(
-                                backgroundColor: Colors.green,
+                            if (canEditEvent &&
+                                (canDeleteEvent ||
+                                    (isAdmin && event.status == EventStatus.pending)))
+                              const SizedBox(width: 8),
+                            if (canDeleteEvent)
+                              IconButton.outlined(
+                                icon: const Icon(Icons.delete_outline),
+                                tooltip: 'Delete event',
+                                style: IconButton.styleFrom(
+                                  backgroundColor: AppColors.danger.withValues(alpha: 0.14),
+                                  foregroundColor: AppColors.danger,
+                                  side: const BorderSide(color: AppColors.danger),
+                                ),
+                                onPressed: () => _confirmDeleteEvent(
+                                  context,
+                                  ref,
+                                  event,
+                                  user,
+                                ),
                               ),
-                              tooltip: 'Approve event',
-                            ),
-                            const SizedBox(width: 8),
-                            IconButton.filled(
-                              icon: const Icon(Icons.close),
-                              onPressed: () => _showRejectDialog(
-                                context,
-                                ref,
-                                event.eventId,
+                            if (canDeleteEvent &&
+                                isAdmin &&
+                                event.status == EventStatus.pending)
+                              const SizedBox(width: 8),
+                            if (isAdmin && event.status == EventStatus.pending)
+                              IconButton.outlined(
+                                icon: const Icon(Icons.check),
+                                onPressed: () => _moderate(
+                                  ref,
+                                  context,
+                                  event.eventId,
+                                  EventStatus.approved,
+                                ),
+                                style: IconButton.styleFrom(
+                                  backgroundColor: AppColors.success.withValues(alpha: 0.14),
+                                  foregroundColor: AppColors.success,
+                                  side: const BorderSide(color: AppColors.success),
+                                ),
+                                tooltip: 'Approve event',
                               ),
-                              style: IconButton.styleFrom(
-                                backgroundColor: Colors.red,
+                            if (isAdmin && event.status == EventStatus.pending)
+                              const SizedBox(width: 8),
+                            if (isAdmin && event.status == EventStatus.pending)
+                              IconButton.outlined(
+                                icon: const Icon(Icons.close),
+                                onPressed: () => _showRejectDialog(
+                                  context,
+                                  ref,
+                                  event.eventId,
+                                ),
+                                style: IconButton.styleFrom(
+                                  backgroundColor: AppColors.danger.withValues(alpha: 0.14),
+                                  foregroundColor: AppColors.danger,
+                                  side: const BorderSide(color: AppColors.danger),
+                                ),
+                                tooltip: 'Reject event',
                               ),
-                              tooltip: 'Reject event',
-                            ),
                           ],
                         ),
                     ],
@@ -195,13 +245,13 @@ class EventDetailsScreen extends ConsumerWidget {
                   const SizedBox(height: 28),
                   _buildInteractionButtons(context, ref, event, user),
                   const SizedBox(height: 32),
-                  _CommentSection(eventId: eventId),
+                  _CommentSection(eventId: eventId, event: event),
                   const SizedBox(height: 54),
                 ],
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -241,6 +291,7 @@ class EventDetailsScreen extends ConsumerWidget {
     }
 
     final isCreator = user.uid == event.creatorId;
+    final canInteract = event.status == EventStatus.approved;
     final isRegisteredAsync = ref.watch(
       isRegisteredStreamProvider(event.eventId, user.uid),
     );
@@ -277,7 +328,7 @@ class EventDetailsScreen extends ConsumerWidget {
                                 children: [
                                   const Icon(
                                     Icons.star_rounded,
-                                    color: Colors.amber,
+                                    color: AppColors.warning,
                                     size: 32,
                                   ),
                                   const SizedBox(width: 8),
@@ -310,7 +361,9 @@ class EventDetailsScreen extends ConsumerWidget {
                     ),
                   ),
                   TextButton.icon(
-                    onPressed: () => _showRatingDialog(context, ref, event, user),
+                    onPressed: canInteract
+                        ? () => _showRatingDialog(context, ref, event, user)
+                        : null,
                     icon: Icon(
                       userRatingAsync.value != null
                           ? Icons.star
@@ -345,8 +398,15 @@ class EventDetailsScreen extends ConsumerWidget {
                       data: (isRegistered) => SizedBox(
                         width: double.infinity,
                         child: ElevatedButton.icon(
-                          onPressed: () =>
-                              _toggleRegistration(ref, event, user, isRegistered),
+                          onPressed: canInteract
+                              ? () => _toggleRegistration(
+                                    context,
+                                    ref,
+                                    event,
+                                    user,
+                                    isRegistered,
+                                  )
+                              : null,
                           icon: Icon(
                             isRegistered
                                 ? Icons.event_busy_outlined
@@ -399,24 +459,33 @@ class EventDetailsScreen extends ConsumerWidget {
   }
 
   void _toggleRegistration(
+    BuildContext context,
     WidgetRef ref,
     EventModel event,
     AppUser user,
     bool isRegistered,
-  ) {
+  ) async {
     final repo = ref.read(eventRepositoryProvider);
-    if (isRegistered) {
-      repo.unregisterFromEvent(event.eventId, user.uid);
-    } else {
-      repo.registerForEvent(
-        event.eventId,
-        user.uid,
-        user.name,
-        userPhotoUrl: user.photoUrl,
-        eventTitle: event.title,
-        eventTime: event.time,
-        locationName: event.location['name'],
-      );
+    try {
+      if (isRegistered) {
+        await repo.unregisterFromEvent(event.eventId, user.uid);
+      } else {
+        await repo.registerForEvent(
+          event.eventId,
+          user.uid,
+          user.name,
+          userPhotoUrl: user.photoUrl,
+          eventTitle: event.title,
+          eventTime: event.time,
+          locationName: event.location['name'],
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Registration failed: $e')));
+      }
     }
   }
 
@@ -429,17 +498,25 @@ class EventDetailsScreen extends ConsumerWidget {
     showDialog(
       context: context,
       builder: (context) => RatingDialog(
-        onRatingSubmitted: (ratingValue) {
-          ref
-              .read(eventRepositoryProvider)
-              .rateEvent(
-                event.eventId,
-                Rating(
-                  userId: user.uid,
-                  rating: ratingValue,
-                  timestamp: DateTime.now(),
-                ),
-              );
+        onRatingSubmitted: (ratingValue) async {
+          try {
+            await ref
+                .read(eventRepositoryProvider)
+                .rateEvent(
+                  event.eventId,
+                  Rating(
+                    userId: user.uid,
+                    rating: ratingValue,
+                    timestamp: DateTime.now(),
+                  ),
+                );
+          } catch (e) {
+            if (context.mounted) {
+              ScaffoldMessenger.of(
+                context,
+              ).showSnackBar(SnackBar(content: Text('Rating failed: $e')));
+            }
+          }
         },
       ),
     );
@@ -448,11 +525,11 @@ class EventDetailsScreen extends ConsumerWidget {
   Color _getStatusColor(EventStatus status) {
     switch (status) {
       case EventStatus.pending:
-        return Colors.orange;
+        return AppColors.warning;
       case EventStatus.approved:
-        return Colors.green;
+        return AppColors.success;
       case EventStatus.rejected:
-        return Colors.red;
+        return AppColors.danger;
     }
   }
 
@@ -476,14 +553,22 @@ class EventDetailsScreen extends ConsumerWidget {
   }
 
   void _showRejectDialog(BuildContext context, WidgetRef ref, String id) {
+    final formKey = GlobalKey<FormState>();
     final reasonController = TextEditingController();
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Reject Event'),
-        content: TextField(
-          controller: reasonController,
-          decoration: const InputDecoration(hintText: 'Reason for rejection'),
+        content: Form(
+          key: formKey,
+          child: TextFormField(
+            controller: reasonController,
+            minLines: 2,
+            maxLines: 4,
+            maxLength: AppValidators.descriptionMax,
+            validator: AppValidators.validateDescription,
+            decoration: const InputDecoration(hintText: 'Reason for rejection'),
+          ),
         ),
         actions: [
           TextButton(
@@ -491,17 +576,77 @@ class EventDetailsScreen extends ConsumerWidget {
             child: const Text('Cancel'),
           ),
           ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.danger.withValues(alpha: 0.14),
+              foregroundColor: AppColors.danger,
+              side: const BorderSide(color: AppColors.danger),
+            ),
             onPressed: () {
+              if (!formKey.currentState!.validate()) return;
               _moderate(
                 ref,
                 context,
                 id,
                 EventStatus.rejected,
-                reason: reasonController.text,
+                reason: reasonController.text.trim(),
               );
-              Navigator.pop(context);
             },
             child: const Text('Reject'),
+          ),
+        ],
+      ),
+    );
+  }
+   void _confirmDeleteEvent(
+    BuildContext context,
+    WidgetRef ref,
+    EventModel event,
+    AppUser? user,
+  ) {
+    if (user == null) return;
+    final canDelete = user.role == UserRole.admin || user.uid == event.creatorId;
+    if (!canDelete) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('You can delete only your own events.')),
+      );
+      return;
+    }
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Event?'),
+        content: const Text('This action cannot be undone.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+        ElevatedButton(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppColors.danger.withValues(alpha: 0.14),
+            foregroundColor: AppColors.danger,
+            side: const BorderSide(color: AppColors.danger),
+          ),
+          onPressed: () async {
+            try {
+              await ref.read(eventRepositoryProvider).deleteEvent(event.eventId);
+              if (context.mounted) {
+                Navigator.pop(context); 
+                if (context.canPop()) context.pop(); 
+              }
+            } catch (_) {
+              if (context.mounted) {
+                Navigator.pop(context); 
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('You are not allowed to delete this event.'),
+                    ),
+                  );
+                }
+              }
+            },
+            child: const Text('Delete'),
           ),
         ],
       ),
@@ -638,15 +783,31 @@ class DetailRow extends StatelessWidget {
   }
 }
 
-class _CommentSection extends ConsumerWidget {
+class _CommentSection extends ConsumerStatefulWidget {
   final String eventId;
-  const _CommentSection({required this.eventId});
+  final EventModel event;
+  const _CommentSection({required this.eventId, required this.event});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final commentsAsync = ref.watch(eventCommentsStreamProvider(eventId));
-    final controller = TextEditingController();
+  ConsumerState<_CommentSection> createState() => _CommentSectionState();
+}
+
+class _CommentSectionState extends ConsumerState<_CommentSection> {
+  final _commentController = TextEditingController();
+  final _commentFormKey = GlobalKey<FormState>();
+
+  @override
+  void dispose() {
+    _commentController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final commentsAsync = ref.watch(eventCommentsStreamProvider(widget.eventId));
     final user = ref.watch(currentUserProvider).value;
+    final canComment =
+        user != null && widget.event.status == EventStatus.approved;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -684,7 +845,7 @@ class _CommentSection extends ConsumerWidget {
           ],
         ),
         const SizedBox(height: 16),
-        if (user != null) ...[
+        if (canComment) ...[
           Row(
             children: [
               CircleAvatar(
@@ -698,21 +859,29 @@ class _CommentSection extends ConsumerWidget {
               ),
               const SizedBox(width: 12),
               Expanded(
-                child: TextField(
-                  controller: controller,
-                  decoration: InputDecoration(
-                    hintText: 'Add a comment...',
-                    filled: true,
-                    fillColor: Theme.of(
-                      context,
-                    ).colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(24),
-                      borderSide: BorderSide.none,
-                    ),
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 20,
-                      vertical: 12,
+                child: Form(
+                  key: _commentFormKey,
+                  child: TextFormField(
+                    controller: _commentController,
+                    enabled: canComment,
+                    maxLength: AppValidators.commentMax,
+                    autovalidateMode: AutovalidateMode.onUserInteraction,
+                    validator: AppValidators.validateComment,
+                    decoration: InputDecoration(
+                      hintText: 'Add a comment...',
+                      filled: true,
+                      fillColor: Theme.of(context)
+                          .colorScheme
+                          .surfaceContainerHighest
+                          .withValues(alpha: 0.5),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(24),
+                        borderSide: BorderSide.none,
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 12,
+                      ),
                     ),
                   ),
                 ),
@@ -720,24 +889,34 @@ class _CommentSection extends ConsumerWidget {
               const SizedBox(width: 8),
               IconButton.filled(
                 icon: const Icon(Icons.send),
-                onPressed: () {
-                  if (controller.text.isNotEmpty) {
-                    ref
-                        .read(eventRepositoryProvider)
-                        .addComment(
-                          eventId,
-                          Comment(
-                            commentId: '', // Firebase will generate
-                            userId: user.uid,
-                            userName: user.name,
-                            userPhotoUrl: user.photoUrl,
-                            text: controller.text,
-                            createdAt: DateTime.now(),
-                          ),
-                        );
-                    controller.clear();
-                  }
-                },
+                onPressed: canComment
+                    ? () async {
+                        if (!_commentFormKey.currentState!.validate()) return;
+
+                        try {
+                          await ref
+                              .read(eventRepositoryProvider)
+                              .addComment(
+                                widget.eventId,
+                                Comment(
+                                  commentId: '', // Firebase will generate
+                                  userId: user.uid,
+                                  userName: user.name,
+                                  userPhotoUrl: user.photoUrl,
+                                  text: _commentController.text.trim(),
+                                  createdAt: DateTime.now(),
+                                ),
+                              );
+                          _commentController.clear();
+                        } catch (e) {
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('Comment failed: $e')),
+                            );
+                          }
+                        }
+                      }
+                    : null,
               ),
             ],
           ),
@@ -760,8 +939,6 @@ class _CommentSection extends ConsumerWidget {
             }
 
             final user = ref.watch(currentUserProvider).value;
-            final isAdmin = user?.role == UserRole.admin;
-
             return ListView.builder(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
@@ -795,26 +972,26 @@ class _CommentSection extends ConsumerWidget {
                     trailing: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        if (isOwner)
+                        if (isOwner && widget.event.status == EventStatus.approved)
                           IconButton(
                             icon: const Icon(Icons.edit_outlined, size: 20),
                             onPressed: () => _showEditCommentDialog(
                               context,
                               ref,
-                              eventId,
+                              widget.eventId,
                               comment,
                             ),
                           ),
-                        if (isAdmin || isOwner)
+                        if (user?.role == UserRole.admin || isOwner)
                           IconButton(
                             icon: const Icon(
                               Icons.delete_outline,
-                              color: Colors.red,
+                              color: AppColors.danger,
                               size: 20,
                             ),
                             onPressed: () => ref
                                 .read(eventRepositoryProvider)
-                                .deleteComment(eventId, comment.commentId),
+                                .deleteComment(widget.eventId, comment.commentId),
                           ),
                       ],
                     ),
@@ -836,15 +1013,22 @@ class _CommentSection extends ConsumerWidget {
     String eventId,
     Comment comment,
   ) {
+    final formKey = GlobalKey<FormState>();
     final controller = TextEditingController(text: comment.text);
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Edit Comment'),
-        content: TextField(
-          controller: controller,
-          decoration: const InputDecoration(hintText: 'Edit your comment...'),
-          maxLines: 3,
+        content: Form(
+          key: formKey,
+          child: TextFormField(
+            controller: controller,
+            decoration: const InputDecoration(hintText: 'Edit your comment...'),
+            minLines: 2,
+            maxLines: 3,
+            maxLength: AppValidators.commentMax,
+            validator: AppValidators.validateComment,
+          ),
         ),
         actions: [
           TextButton(
@@ -853,14 +1037,21 @@ class _CommentSection extends ConsumerWidget {
           ),
           ElevatedButton(
             onPressed: () async {
-              if (controller.text.isNotEmpty) {
+              if (!formKey.currentState!.validate()) return;
+              try {
                 await ref
                     .read(eventRepositoryProvider)
                     .updateComment(
                       eventId,
-                      comment.copyWith(text: controller.text),
+                      comment.copyWith(text: controller.text.trim()),
                     );
                 if (context.mounted) Navigator.pop(context);
+              } catch (e) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(
+                    context,
+                  ).showSnackBar(SnackBar(content: Text('Comment update failed: $e')));
+                }
               }
             },
             child: const Text('Save'),
@@ -869,6 +1060,8 @@ class _CommentSection extends ConsumerWidget {
       ),
     );
   }
+
+ 
 }
 
 class _WeatherInfo extends ConsumerWidget {
@@ -887,7 +1080,6 @@ class _WeatherInfo extends ConsumerWidget {
     final address = location['name'] as String?;
     if (address == null || address.isEmpty) return const SizedBox.shrink();
 
-    // Use geocodeProvider (from location_service.dart) to fetch missing coordinates
     final coordsAsync = ref.watch(geocodeProvider(address));
 
     return coordsAsync.when(
