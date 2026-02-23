@@ -131,7 +131,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                           ),
                           obscureText: true,
                           maxLength: AppValidators.passwordMax,
-                          validator: AppValidators.validatePassword,
+                          validator: AppValidators.validateStrongPassword,
                         ),
                         const SizedBox(height: 14),
                         TextFormField(

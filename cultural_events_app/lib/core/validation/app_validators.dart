@@ -17,6 +17,9 @@ class AppValidators {
     r'\.(jpg|jpeg|png|webp)$',
     caseSensitive: false,
   );
+  static final RegExp _strongPasswordRegex = RegExp(
+    r'^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^\w\s]).+$',
+  );
 
   static String? validateName(String? value) {
     final text = value?.trim() ?? '';
@@ -55,6 +58,10 @@ class AppValidators {
   }
 
   static String? validatePassword(String? value) {
+    return validateStrongPassword(value);
+  }
+
+  static String? validateStrongPassword(String? value) {
     final text = value ?? '';
     if (text.isEmpty) return 'Password is required.';
     if (text.length < passwordMin) {
@@ -63,11 +70,23 @@ class AppValidators {
     if (text.length > passwordMax) {
       return 'Password must be at most $passwordMax characters.';
     }
+    if (!_strongPasswordRegex.hasMatch(text)) {
+      return 'Password must include upper/lowercase letters, a number, and a special character.';
+    }
+    return null;
+  }
+
+  static String? validateLoginPassword(String? value) {
+    final text = value ?? '';
+    if (text.isEmpty) return 'Password is required.';
+    if (text.length > passwordMax) {
+      return 'Password must be at most $passwordMax characters.';
+    }
     return null;
   }
 
   static String? validateConfirmPassword(String? value, String password) {
-    final passwordValidation = validatePassword(value);
+    final passwordValidation = validateStrongPassword(value);
     if (passwordValidation != null) return passwordValidation;
     if (value != password) return 'Passwords do not match.';
     return null;

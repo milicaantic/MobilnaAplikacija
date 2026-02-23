@@ -15,9 +15,12 @@ import '../../features/auth/data/auth_repository.dart';
 import '../../features/events/presentation/event_participants_screen.dart';
 import '../../features/events/presentation/admin_dashboard_screen.dart';
 import '../../features/auth/presentation/profile_screen.dart';
+import '../../features/auth/domain/user_role.dart';
+import '../providers/current_user_provider.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   final authState = ref.watch(authStateProvider);
+  final currentUser = ref.watch(currentUserProvider).asData?.value;
 
   return GoRouter(
     initialLocation: '/',
@@ -130,15 +133,21 @@ final routerProvider = Provider<GoRouter>((ref) {
     redirect: (context, state) {
       final user = authState.asData?.value;
       final isSignedIn = user != null;
+      final isAdmin = currentUser?.role == UserRole.admin;
 
       final isAuthRoute =
           state.uri.path == '/login' || state.uri.path == '/register';
+      final isAdminRoute = state.uri.path == '/admin';
 
       if (!isSignedIn &&
           !isAuthRoute &&
           state.uri.path != '/' &&
           !state.uri.path.startsWith('/events')) {
         return '/login';
+      }
+
+      if (isSignedIn && isAdminRoute && !isAdmin) {
+        return '/';
       }
 
       if (isSignedIn && isAuthRoute) {

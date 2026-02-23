@@ -136,7 +136,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           ),
                           obscureText: true,
                           maxLength: AppValidators.passwordMax,
-                          validator: AppValidators.validatePassword,
+                          validator: AppValidators.validateLoginPassword,
                         ),
                         AnimatedSwitcher(
                           duration: const Duration(milliseconds: 220),
