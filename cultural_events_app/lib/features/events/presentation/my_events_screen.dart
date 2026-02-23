@@ -133,6 +133,20 @@ class _MyEventCard extends StatelessWidget {
                     width: 64,
                     height: 64,
                     fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => Container(
+                      width: 64,
+                      height: 64,
+                      decoration: BoxDecoration(
+                        color: Theme.of(context)
+                            .colorScheme
+                            .surfaceContainerHighest,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Icon(
+                        Icons.broken_image_outlined,
+                        color: Theme.of(context).colorScheme.outline,
+                      ),
+                    ),
                   ),
                 )
               else

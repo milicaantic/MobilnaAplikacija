@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -40,6 +42,42 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen> {
   bool _didPopulateForm = false;
   EventModel? _editingBaseEvent;
 
+  Future<String?> _validateImageAccessibility(String imageUrl) async {
+    final formatValidation = AppValidators.validateImageUrl(imageUrl);
+    if (formatValidation != null) {
+      return formatValidation;
+    }
+
+    final completer = Completer<void>();
+    final imageStream = NetworkImage(imageUrl).resolve(
+      const ImageConfiguration(),
+    );
+
+    late final ImageStreamListener listener;
+    listener = ImageStreamListener(
+      (image, synchronousCall) {
+        if (!completer.isCompleted) {
+          completer.complete();
+        }
+      },
+      onError: (error, stackTrace) {
+        if (!completer.isCompleted) {
+          completer.completeError(error, stackTrace);
+        }
+      },
+    );
+
+    imageStream.addListener(listener);
+    try {
+      await completer.future.timeout(const Duration(seconds: 8));
+      return null;
+    } catch (_) {
+      return 'Image could not be loaded from this URL.';
+    } finally {
+      imageStream.removeListener(listener);
+    }
+  }
+
   @override
   void dispose() {
     _titleController.dispose();
@@ -81,6 +119,20 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen> {
     final isEditMode = editingId != null && editingId.isNotEmpty;
     final shouldResetRejectedToPending =
         isEditMode && _editingBaseEvent?.status == EventStatus.rejected;
+
+    final imageUrl = _imageUrlController.text.trim();
+    if (!isEditMode && imageUrl.isNotEmpty) {
+      final imageValidationError = await _validateImageAccessibility(imageUrl);
+      if (imageValidationError != null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(imageValidationError)),
+          );
+          setState(() => _isLoading = false);
+        }
+        return;
+      }
+    }
 
     if (isEditMode) {
       _editingBaseEvent ??= widget.initialEvent;

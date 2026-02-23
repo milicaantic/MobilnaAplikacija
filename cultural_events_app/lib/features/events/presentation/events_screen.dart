@@ -216,6 +216,19 @@ class _EventCard extends ConsumerWidget {
                         height: 160,
                         width: double.infinity,
                         fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => Container(
+                          height: 160,
+                          width: double.infinity,
+                          color: Theme.of(context)
+                              .colorScheme
+                              .surfaceContainerHighest,
+                          alignment: Alignment.center,
+                          child: Icon(
+                            Icons.broken_image_outlined,
+                            color: Theme.of(context).colorScheme.outline,
+                            size: 30,
+                          ),
+                        ),
                       ),
                     ),
                   ),

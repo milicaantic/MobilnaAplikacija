@@ -49,6 +49,7 @@ class EventParticipantsScreen extends ConsumerWidget {
                     backgroundImage: registration.userPhotoUrl != null
                         ? NetworkImage(registration.userPhotoUrl!)
                         : null,
+                    onBackgroundImageError: (_, __) {},
                     child: registration.userPhotoUrl == null
                         ? const Icon(Icons.person_outline)
                         : null,

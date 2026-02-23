@@ -59,7 +59,27 @@ class EventDetailsScreen extends ConsumerWidget {
                       fit: StackFit.expand,
                       children: [
                         if (event.imageUrl != null)
-                          Image.network(event.imageUrl!, fit: BoxFit.cover)
+                          Image.network(
+                            event.imageUrl!,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => Container(
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                  colors: [
+                                    Theme.of(context).colorScheme.primary,
+                                    Theme.of(context).colorScheme.secondary,
+                                  ],
+                                ),
+                              ),
+                              child: const Icon(
+                                Icons.broken_image_outlined,
+                                size: 72,
+                                color: Colors.white38,
+                              ),
+                            ),
+                          )
                         else
                           Container(
                             decoration: BoxDecoration(
@@ -853,6 +873,7 @@ class _CommentSectionState extends ConsumerState<_CommentSection> {
                 backgroundImage: user.photoUrl != null
                     ? NetworkImage(user.photoUrl!)
                     : null,
+                onBackgroundImageError: (_, __) {},
                 child: user.photoUrl == null
                     ? const Icon(Icons.person, size: 20)
                     : null,
@@ -954,6 +975,7 @@ class _CommentSectionState extends ConsumerState<_CommentSection> {
                       backgroundImage: comment.userPhotoUrl != null
                           ? NetworkImage(comment.userPhotoUrl!)
                           : null,
+                      onBackgroundImageError: (_, __) {},
                       child: comment.userPhotoUrl == null
                           ? const Icon(Icons.person_outline)
                           : null,
@@ -1131,6 +1153,10 @@ class _WeatherDisplay extends ConsumerWidget {
                 'https://openweathermap.org/img/wn/$icon@2x.png',
                 width: 50,
                 height: 50,
+                errorBuilder: (_, __, ___) => const Icon(
+                  Icons.cloud_outlined,
+                  size: 36,
+                ),
               ),
               const SizedBox(width: 12),
               Column(

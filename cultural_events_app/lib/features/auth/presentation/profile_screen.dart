@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/providers/current_user_provider.dart';
@@ -40,15 +42,64 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     }
   }
 
+  Future<String?> _validateImageAccessibility(String imageUrl) async {
+    final formatValidation = AppValidators.validateImageUrl(imageUrl);
+    if (formatValidation != null) {
+      return formatValidation;
+    }
+
+    final completer = Completer<void>();
+    final imageStream = NetworkImage(imageUrl).resolve(
+      const ImageConfiguration(),
+    );
+
+    late final ImageStreamListener listener;
+    listener = ImageStreamListener(
+      (image, synchronousCall) {
+        if (!completer.isCompleted) {
+          completer.complete();
+        }
+      },
+      onError: (error, stackTrace) {
+        if (!completer.isCompleted) {
+          completer.completeError(error, stackTrace);
+        }
+      },
+    );
+
+    imageStream.addListener(listener);
+    try {
+      await completer.future.timeout(const Duration(seconds: 8));
+      return null;
+    } catch (_) {
+      return 'Profile photo URL could not be loaded.';
+    } finally {
+      imageStream.removeListener(listener);
+    }
+  }
+
   Future<void> _saveProfile(String uid) async {
     if (!_editFormKey.currentState!.validate()) return;
+
+    final photoUrl = _photoUrlController.text.trim();
+    if (photoUrl.isNotEmpty) {
+      final imageValidationError = await _validateImageAccessibility(photoUrl);
+      if (imageValidationError != null) {
+        if (mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text(imageValidationError)));
+        }
+        return;
+      }
+    }
 
     await ref
         .read(userRepositoryProvider)
         .updateUserProfile(
           uid,
           name: _nameController.text.trim(),
-          photoUrl: _photoUrlController.text.trim(),
+          photoUrl: photoUrl,
         );
     setState(() => _isEditing = false);
     if (mounted) {
@@ -87,6 +138,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                           backgroundImage: user.photoUrl != null
                               ? NetworkImage(user.photoUrl!)
                               : null,
+                          onBackgroundImageError: (_, __) {},
                           child: user.photoUrl == null
                               ? const Icon(Icons.person, size: 48)
                               : null,

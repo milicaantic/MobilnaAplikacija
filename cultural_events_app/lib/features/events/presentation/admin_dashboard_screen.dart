@@ -74,6 +74,7 @@ class _UserManagementView extends ConsumerWidget {
                 backgroundImage: user.photoUrl != null
                     ? NetworkImage(user.photoUrl!)
                     : null,
+                onBackgroundImageError: (_, __) {},
                 child: user.photoUrl == null
                     ? const Icon(Icons.person_outline)
                     : null,
