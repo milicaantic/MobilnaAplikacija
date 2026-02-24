@@ -45,9 +45,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       if (!mounted) return;
       setState(() => _errorMessage = _friendlyLoginError(e));
     } finally {
-      if (!mounted) return;
       setState(() => _isLoading = false);
     }
+          if (!mounted) return;
+
   }
 
   String _friendlyLoginError(Object error) {

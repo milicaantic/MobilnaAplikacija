@@ -58,7 +58,7 @@ class _UserManagementView extends ConsumerWidget {
       data: (users) => ListView.separated(
         padding: const EdgeInsets.fromLTRB(16, 14, 16, 24),
         itemCount: users.length,
-        separatorBuilder: (_, __) => const SizedBox(height: 10),
+        separatorBuilder: (_, _) => const SizedBox(height: 10),
         itemBuilder: (context, index) {
           final user = users[index];
           return Card(
@@ -87,7 +87,7 @@ class _UserManagementView extends ConsumerWidget {
                     backgroundImage: imageProvider,
                     onBackgroundImageError: imageProvider == null
                         ? null
-                        : (_, __) {},
+                        : (_, _) {},
                     child: imageProvider == null
                         ? const Icon(Icons.person_outline)
                         : null,
@@ -203,7 +203,7 @@ class _ApprovalQueue extends ConsumerWidget {
         return ListView.separated(
           padding: const EdgeInsets.fromLTRB(16, 14, 16, 24),
           itemCount: events.length,
-          separatorBuilder: (_, __) => const SizedBox(height: 10),
+          separatorBuilder: (_, _) => const SizedBox(height: 10),
           itemBuilder: (context, index) {
             final event = events[index];
             return Card(

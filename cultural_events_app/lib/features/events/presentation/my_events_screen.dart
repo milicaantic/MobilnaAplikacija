@@ -80,7 +80,7 @@ class MyEventsScreen extends ConsumerWidget {
                       shrinkWrap: true,
                       physics: const NeverScrollableScrollPhysics(),
                       itemCount: events.length,
-                      separatorBuilder: (_, __) => const SizedBox(height: 16),
+                      separatorBuilder: (_, _) => const SizedBox(height: 16),
                       itemBuilder: (context, index) {
                         final event = events[index];
                         return _MyEventCard(
@@ -136,7 +136,7 @@ class _MyEventCard extends StatelessWidget {
                     cacheWidth: 192,
                     cacheHeight: 192,
                     filterQuality: FilterQuality.low,
-                    errorBuilder: (_, __, ___) => Container(
+                    errorBuilder: (_, _, _) => Container(
                       width: 64,
                       height: 64,
                       decoration: BoxDecoration(

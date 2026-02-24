@@ -14,7 +14,6 @@ class UserRepository {
     String? photoUrl,
   }) async {
     final data = {
-      if (name != null) 'name': name,
       if (photoUrl != null) 'photoUrl': photoUrl,
       if (photoUrl != null) 'photoUpdatedAt': FieldValue.serverTimestamp(),
     };

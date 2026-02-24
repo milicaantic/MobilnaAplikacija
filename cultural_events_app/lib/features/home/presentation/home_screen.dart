@@ -106,7 +106,7 @@ class HomeScreen extends ConsumerWidget {
                         width: 32,
                         height: 32,
                         fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) =>
+                        errorBuilder: (_, _, _) =>
                             const Icon(Icons.person_outline, size: 18),
                       ),
                     )
@@ -135,7 +135,7 @@ class HomeScreen extends ConsumerWidget {
                             style: Theme.of(context).textTheme.headlineSmall
                                 ?.copyWith(fontWeight: FontWeight.w800),
                           ),
-                          error: (_, __) => Text(
+                          error: (_, _) => Text(
                             'Welcome back',
                             style: Theme.of(context).textTheme.headlineSmall
                                 ?.copyWith(fontWeight: FontWeight.w800),

@@ -5,7 +5,6 @@ import '../../features/home/presentation/home_screen.dart';
 import '../../features/events/presentation/events_screen.dart';
 import '../../features/events/presentation/event_details_screen.dart';
 import '../../features/events/presentation/create_event_screen.dart';
-import '../../features/categories/presentation/categories_screen.dart';
 import '../../features/events/domain/event_model.dart';
 import '../../features/events/presentation/my_events_screen.dart';
 import '../../features/events/presentation/my_registrations_screen.dart';
@@ -22,7 +21,7 @@ final routerProvider = Provider<GoRouter>((ref) {
   final authState = ref.watch(authStateProvider);
   final currentUserRole = ref.watch(
     currentUserProvider.select((value) => value.asData?.value?.role),
-  );
+  );  
 
   return GoRouter(
     initialLocation: '/',
@@ -30,7 +29,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       data: (user) => _ListenableStream(
         ref.read(authRepositoryProvider).authStateChanges(),
       ),
-      error: (_, __) => _ListenableStream(Stream.value(null)),
+      error: (_, _) => _ListenableStream(Stream.value(null)),
       loading: () => _ListenableStream(Stream.value(null)),
     ),
     routes: [
@@ -91,14 +90,6 @@ final routerProvider = Provider<GoRouter>((ref) {
             fromBottom: true,
           );
         },
-      ),
-      GoRoute(
-        path: '/categories',
-        pageBuilder: (context, state) => _buildPage(
-          state,
-          const CategoriesScreen(),
-          fromBottom: true,
-        ),
       ),
       GoRoute(
         path: '/my-events',

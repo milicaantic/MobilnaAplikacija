@@ -55,7 +55,7 @@ class MyRegistrationsScreen extends ConsumerWidget {
               return ListView.separated(
                 itemCount: registrations.length,
                 padding: const EdgeInsets.fromLTRB(16, 14, 16, 24),
-                separatorBuilder: (_, __) => const SizedBox(height: 10),
+                separatorBuilder: (_, _) => const SizedBox(height: 10),
                 itemBuilder: (context, index) {
                   final reg = registrations[index];
                   return Card(

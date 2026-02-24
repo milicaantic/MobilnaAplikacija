@@ -346,7 +346,7 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen> {
                                       image: imageProvider,
                                       fit: BoxFit.cover,
                                       child: const SizedBox.expand(),
-                                      onImageError: (_, __) =>
+                                      onImageError: (_, _) =>
                                           _handlePreviewImageError(),
                                     ),
                             ),
@@ -429,7 +429,7 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen> {
                         );
                       },
                       loading: () => const LinearProgressIndicator(),
-                      error: (_, __) => const Text('Error loading categories'),
+                      error: (_, _) => const Text('Error loading categories'),
                     ),
                     const SizedBox(height: 14),
                     Card(

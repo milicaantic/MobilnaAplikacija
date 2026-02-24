@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/painting.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/providers/current_user_provider.dart';
 import '../../../core/theme/app_colors.dart';
@@ -70,7 +69,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   Future<void> _evictImageFromCache(String? rawUrl) async {
     final imageProvider = buildOptimizedNetworkImageProvider(rawUrl);
     if (imageProvider != null) {
-      await PaintingBinding.instance.imageCache.evict(imageProvider);
+       PaintingBinding.instance.imageCache.evict(imageProvider);
     }
   }
 
@@ -219,7 +218,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                           backgroundImage: imageProvider,
                           onBackgroundImageError: imageProvider == null
                               ? null
-                              : (_, __) => _scheduleImageErrorState(),
+                              : (_, _) => _scheduleImageErrorState(),
                           child: imageProvider == null
                               ? const Icon(Icons.person, size: 48)
                               : null,

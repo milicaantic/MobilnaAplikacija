@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import '../domain/event_model.dart';
 import '../domain/event_status.dart';
 import '../data/event_repository.dart';
@@ -16,20 +15,6 @@ import 'widgets/rating_dialog.dart';
 import '../../../core/validation/app_validators.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/network_image_utils.dart';
-
-final commenterUserProvider = StreamProvider.family<AppUser?, String>((
-  ref,
-  userId,
-) {
-  return FirebaseFirestore.instance
-      .collection('users')
-      .doc(userId)
-      .snapshots()
-      .map((snapshot) {
-        if (!snapshot.exists) return null;
-        return AppUser.fromJson(snapshot.data()!, snapshot.id);
-      });
-});
 
 class EventDetailsScreen extends ConsumerWidget {
   final String eventId;
@@ -80,7 +65,7 @@ class EventDetailsScreen extends ConsumerWidget {
                             fit: BoxFit.cover,
                             cacheWidth: 1400,
                             filterQuality: FilterQuality.low,
-                            errorBuilder: (_, __, ___) => Container(
+                            errorBuilder: (_, _, _) => Container(
                               decoration: BoxDecoration(
                                 gradient: LinearGradient(
                                   begin: Alignment.topLeft,
@@ -771,18 +756,18 @@ class _EventOverviewSection extends StatelessWidget {
 
   String _formatDate(DateTime date) {
     final months = [
-      'January',
-      'February',
-      'March',
-      'April',
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
       'May',
-      'June',
-      'July',
-      'August',
-      'September',
-      'October',
-      'November',
-      'December',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
     ];
     return '${months[date.month - 1]} ${date.day}, ${date.year} at ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
   }
@@ -959,7 +944,7 @@ class _CommentSectionState extends ConsumerState<_CommentSection> {
                     backgroundImage: commenterImageProvider,
                     onBackgroundImageError: commenterImageProvider == null
                         ? null
-                        : (_, __) {},
+                        : (_, _) {},
                     child: commenterImageProvider == null
                         ? const Icon(Icons.person, size: 20)
                         : null,
@@ -1028,7 +1013,7 @@ class _CommentSectionState extends ConsumerState<_CommentSection> {
                               .addComment(
                                 widget.eventId,
                                 Comment(
-                                  commentId: '', // Firebase will generate
+                                  commentId: '', 
                                   userId: user.uid,
                                   userName: user.name,
                                   userPhotoUrl: user.photoUrl,
@@ -1088,14 +1073,7 @@ class _CommentSectionState extends ConsumerState<_CommentSection> {
               itemBuilder: (context, index) {
                 final comment = comments[index];
                 final isOwner = user.uid == comment.userId;
-                final commenterAsync = ref.watch(
-                  commenterUserProvider(comment.userId),
-                );
-                final commenter = commenterAsync.maybeWhen(
-                  data: (value) => value,
-                  orElse: () => null,
-                );
-                final displayName = commenter?.name ?? comment.userName;
+                final displayName = comment.userName;
 
                 return Card(
                   margin: const EdgeInsets.only(bottom: 10),
@@ -1103,21 +1081,16 @@ class _CommentSectionState extends ConsumerState<_CommentSection> {
                     leading: Builder(
                       builder: (context) {
                         final commentPhotoUrl =
-                            (commenter?.photoUrl ?? comment.userPhotoUrl ?? '')
-                                .trim();
+                            (comment.userPhotoUrl ?? '').trim();
                         final ImageProvider<Object>? commentImageProvider =
                             commentPhotoUrl.isNotEmpty
                             ? buildOptimizedNetworkImageProvider(
                                 commentPhotoUrl,
                                 cacheWidth: 104,
                                 cacheHeight: 104,
-                                cacheKey: commenter?.photoUpdatedAt != null
-                                    ? commenter!.photoUpdatedAt!
-                                          .millisecondsSinceEpoch
-                                          .toString()
-                                    : comment.userPhotoUpdatedAt
-                                          ?.millisecondsSinceEpoch
-                                          .toString(),
+                                cacheKey: comment.userPhotoUpdatedAt
+                                    ?.millisecondsSinceEpoch
+                                    .toString(),
                               )
                             : null;
 
@@ -1125,7 +1098,7 @@ class _CommentSectionState extends ConsumerState<_CommentSection> {
                           backgroundImage: commentImageProvider,
                           onBackgroundImageError: commentImageProvider == null
                               ? null
-                              : (_, __) {},
+                              : (_, _) {},
                           child: commentImageProvider == null
                               ? const Icon(Icons.person_outline)
                               : null,
@@ -1307,7 +1280,7 @@ class _WeatherDisplay extends ConsumerWidget {
                 height: 50,
                 cacheWidth: 100,
                 cacheHeight: 100,
-                errorBuilder: (_, __, ___) => const Icon(
+                errorBuilder: (_, _, _) => const Icon(
                   Icons.cloud_outlined,
                   size: 36,
                 ),

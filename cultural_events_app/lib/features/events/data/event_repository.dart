@@ -253,7 +253,6 @@ class EventRepository {
               }, userId);
               registrations.add(parsed);
             } catch (_) {
-              // Skip malformed records to avoid keeping the stream in a bad state.
             }
           }
           registrations.sort((a, b) => b.registeredAt.compareTo(a.registeredAt));

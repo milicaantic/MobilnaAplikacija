@@ -83,7 +83,7 @@ class EventsScreen extends ConsumerWidget {
                     scrollDirection: Axis.horizontal,
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     itemCount: categories.length + 1,
-                    separatorBuilder: (_, __) => const SizedBox(width: 8),
+                    separatorBuilder: (_, _) => const SizedBox(width: 8),
                     itemBuilder: (context, index) {
                       if (index == 0) {
                         return ChoiceChip(
@@ -111,7 +111,7 @@ class EventsScreen extends ConsumerWidget {
                     },
                   ),
                   loading: () => const Center(child: LinearProgressIndicator()),
-                  error: (_, __) => const SizedBox(),
+                  error: (_,_) => const SizedBox(),
                 ),
               ),
               const SizedBox(height: 10),
@@ -165,7 +165,7 @@ class EventsScreen extends ConsumerWidget {
                 child: const Icon(Icons.add),
               )
             : null,
-        error: (_, __) => null,
+        error: (_, _) => null,
         loading: () => null,
       ),
     );
@@ -189,7 +189,7 @@ class _EventCard extends ConsumerWidget {
         return 'General';
       },
       loading: () => '...',
-      error: (_, __) => '',
+      error: (_, _) => '',
     );
 
     return TweenAnimationBuilder<double>(
@@ -218,7 +218,7 @@ class _EventCard extends ConsumerWidget {
                         fit: BoxFit.cover,
                         filterQuality: FilterQuality.low,
                         cacheWidth: 1200,
-                        errorBuilder: (_, __, ___) => Container(
+                        errorBuilder: (_, _, _) => Container(
                           height: 160,
                           width: double.infinity,
                           color: Theme.of(context)
