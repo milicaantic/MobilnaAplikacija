@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/event_repository.dart';
+import '../../../core/widgets/network_image_utils.dart';
 
 class EventParticipantsScreen extends ConsumerWidget {
   final String eventId;
@@ -49,7 +50,13 @@ class EventParticipantsScreen extends ConsumerWidget {
                     builder: (context) {
                       final photoUrl = (registration.userPhotoUrl ?? '').trim();
                       final ImageProvider<Object>? imageProvider =
-                          photoUrl.isNotEmpty ? NetworkImage(photoUrl) : null;
+                          photoUrl.isNotEmpty
+                          ? buildOptimizedNetworkImageProvider(
+                              photoUrl,
+                              cacheWidth: 112,
+                              cacheHeight: 112,
+                            )
+                          : null;
                       return CircleAvatar(
                         backgroundImage: imageProvider,
                         onBackgroundImageError: imageProvider == null

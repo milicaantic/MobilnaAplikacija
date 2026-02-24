@@ -43,6 +43,14 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen> {
   bool _networkImageFailed = false;
   EventModel? _editingBaseEvent;
 
+  void _handlePreviewImageError() {
+    if (!mounted || _networkImageFailed) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _networkImageFailed) return;
+      setState(() => _networkImageFailed = true);
+    });
+  }
+
   bool _isValidImageUrl(String? value) {
     final url = value?.trim();
     if (url == null || url.isEmpty) return false;
@@ -338,11 +346,8 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen> {
                                       image: imageProvider,
                                       fit: BoxFit.cover,
                                       child: const SizedBox.expand(),
-                                      onImageError: (_, __) {
-                                        if (mounted) {
-                                          setState(() => _networkImageFailed = true);
-                                        }
-                                      },
+                                      onImageError: (_, __) =>
+                                          _handlePreviewImageError(),
                                     ),
                             ),
                           ),

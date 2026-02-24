@@ -6,6 +6,7 @@ class Comment {
   final String userId;
   final String userName;
   final String? userPhotoUrl;
+  final DateTime? userPhotoUpdatedAt;
   final String text;
   final DateTime createdAt;
 
@@ -14,6 +15,7 @@ class Comment {
     required this.userId,
     required this.userName,
     this.userPhotoUrl,
+    this.userPhotoUpdatedAt,
     required this.text,
     required this.createdAt,
   });
@@ -24,6 +26,9 @@ class Comment {
       userId: json['userId'] as String,
       userName: json['userName'] as String,
       userPhotoUrl: json['userPhotoUrl'] as String?,
+      userPhotoUpdatedAt: json['userPhotoUpdatedAt'] is Timestamp
+          ? (json['userPhotoUpdatedAt'] as Timestamp).toDate()
+          : null,
       text: json['text'] as String,
       createdAt: (json['createdAt'] as Timestamp).toDate(),
     );
@@ -34,6 +39,8 @@ class Comment {
       'userId': userId,
       'userName': userName,
       'userPhotoUrl': userPhotoUrl,
+      if (userPhotoUpdatedAt != null)
+        'userPhotoUpdatedAt': Timestamp.fromDate(userPhotoUpdatedAt!),
       'text': text,
       'createdAt': Timestamp.fromDate(createdAt),
     };
@@ -44,6 +51,7 @@ class Comment {
     String? userId,
     String? userName,
     String? userPhotoUrl,
+    DateTime? userPhotoUpdatedAt,
     String? text,
     DateTime? createdAt,
   }) {
@@ -52,6 +60,7 @@ class Comment {
       userId: userId ?? this.userId,
       userName: userName ?? this.userName,
       userPhotoUrl: userPhotoUrl ?? this.userPhotoUrl,
+      userPhotoUpdatedAt: userPhotoUpdatedAt ?? this.userPhotoUpdatedAt,
       text: text ?? this.text,
       createdAt: createdAt ?? this.createdAt,
     );

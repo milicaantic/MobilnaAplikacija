@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/providers/current_user_provider.dart';
+import '../../../core/widgets/network_image_utils.dart';
 import '../../auth/domain/user_role.dart';
 
 class HomeScreen extends ConsumerWidget {
@@ -77,6 +78,12 @@ class HomeScreen extends ConsumerWidget {
     final roleLabel = user.role == UserRole.admin ? 'Admin Access' : 'User Access';
     final profilePhotoUrl = user.photoUrl?.trim();
     final hasProfilePhoto = profilePhotoUrl != null && profilePhotoUrl.isNotEmpty;
+    final profileImageProvider = buildOptimizedNetworkImageProvider(
+      profilePhotoUrl,
+      cacheWidth: 96,
+      cacheHeight: 96,
+      cacheKey: user.photoUpdatedAt?.millisecondsSinceEpoch.toString(),
+    );
 
     return Scaffold(
       appBar: AppBar(
@@ -92,17 +99,15 @@ class HomeScreen extends ConsumerWidget {
             icon: CircleAvatar(
               radius: 16,
               backgroundColor: colorScheme.secondaryContainer,
-              child: hasProfilePhoto
+              child: hasProfilePhoto && profileImageProvider != null
                   ? ClipOval(
-                      child: Image.network(
-                        profilePhotoUrl,
+                      child: Image(
+                        image: profileImageProvider,
                         width: 32,
                         height: 32,
                         fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => const Icon(
-                          Icons.person_outline,
-                          size: 18,
-                        ),
+                        errorBuilder: (_, __, ___) =>
+                            const Icon(Icons.person_outline, size: 18),
                       ),
                     )
                   : const Icon(Icons.person_outline, size: 18),

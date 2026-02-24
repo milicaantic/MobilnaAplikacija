@@ -9,6 +9,7 @@ import '../../categories/data/category_repository.dart';
 import '../../categories/domain/category.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/validation/app_validators.dart';
+import '../../../core/widgets/network_image_utils.dart';
 
 class AdminDashboardScreen extends ConsumerWidget {
   const AdminDashboardScreen({super.key});
@@ -73,7 +74,13 @@ class _UserManagementView extends ConsumerWidget {
                 builder: (context) {
                   final photoUrl = (user.photoUrl ?? '').trim();
                   final ImageProvider<Object>? imageProvider = photoUrl.isNotEmpty
-                      ? NetworkImage(photoUrl)
+                      ? buildOptimizedNetworkImageProvider(
+                          photoUrl,
+                          cacheWidth: 128,
+                          cacheHeight: 128,
+                          cacheKey: user.photoUpdatedAt?.millisecondsSinceEpoch
+                              .toString(),
+                        )
                       : null;
                   return CircleAvatar(
                     radius: 23,

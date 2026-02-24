@@ -151,5 +151,11 @@ service cloud.firestore {
         allow delete: if isOwner(userId) || isAdmin();
       }
     }
+
+    // Explicit collection-group rule for user registrations.
+    // This prevents permission-denied on collectionGroup('registrations') queries.
+    match /{path=**}/registrations/{registrationId} {
+      allow read: if isSignedIn();
+    }
   }
 }

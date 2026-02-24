@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/painting.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'core/theme/app_theme.dart';
 import 'core/router/app_router.dart';
@@ -9,6 +10,8 @@ import 'firebase_options.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  PaintingBinding.instance.imageCache.maximumSize = 1500;
+  PaintingBinding.instance.imageCache.maximumSizeBytes = 200 << 20;
 
   FirebaseFirestore.instance.settings = const Settings(
     persistenceEnabled: true,

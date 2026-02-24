@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../domain/event_model.dart';
 import '../domain/event_status.dart';
 import '../data/event_repository.dart';
@@ -14,6 +15,21 @@ import '../domain/rating.dart';
 import 'widgets/rating_dialog.dart';
 import '../../../core/validation/app_validators.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/widgets/network_image_utils.dart';
+
+final commenterUserProvider = StreamProvider.family<AppUser?, String>((
+  ref,
+  userId,
+) {
+  return FirebaseFirestore.instance
+      .collection('users')
+      .doc(userId)
+      .snapshots()
+      .map((snapshot) {
+        if (!snapshot.exists) return null;
+        return AppUser.fromJson(snapshot.data()!, snapshot.id);
+      });
+});
 
 class EventDetailsScreen extends ConsumerWidget {
   final String eventId;
@@ -62,6 +78,8 @@ class EventDetailsScreen extends ConsumerWidget {
                           Image.network(
                             event.imageUrl!,
                             fit: BoxFit.cover,
+                            cacheWidth: 1400,
+                            filterQuality: FilterQuality.low,
                             errorBuilder: (_, __, ___) => Container(
                               decoration: BoxDecoration(
                                 gradient: LinearGradient(
@@ -265,8 +283,10 @@ class EventDetailsScreen extends ConsumerWidget {
                   const SizedBox(height: 28),
                   _buildInteractionButtons(context, ref, event, user),
                   const SizedBox(height: 32),
-                  _CommentSection(eventId: eventId, event: event),
-                  const SizedBox(height: 54),
+                  if (user != null) ...[
+                    _CommentSection(eventId: eventId, event: event),
+                    const SizedBox(height: 54),
+                  ],
                 ],
               ),
             ),
@@ -295,7 +315,7 @@ class EventDetailsScreen extends ConsumerWidget {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text(
-                'Sign in to add ratings, register and comment on this event.',
+                'Sign in to add ratings, register, and post comments on this event.',
                 style: Theme.of(context).textTheme.bodyMedium,
               ),
               const SizedBox(height: 12),
@@ -315,8 +335,17 @@ class EventDetailsScreen extends ConsumerWidget {
     final isRegisteredAsync = ref.watch(
       isRegisteredStreamProvider(event.eventId, user.uid),
     );
+    final isRegistered = isRegisteredAsync.maybeWhen(
+      data: (value) => value,
+      orElse: () => false,
+    );
     final userRatingAsync = ref.watch(
       userEventRatingStreamProvider(event.eventId, user.uid),
+    );
+    final ratingStatsAsync = ref.watch(eventRatingStatsStreamProvider(event.eventId));
+    final ratingStats = ratingStatsAsync.maybeWhen(
+      data: (value) => value,
+      orElse: () => null,
     );
 
     return Column(
@@ -341,42 +370,36 @@ class EventDetailsScreen extends ConsumerWidget {
                               ?.copyWith(fontWeight: FontWeight.w700),
                         ),
                         const SizedBox(height: 10),
-                        ref
-                            .watch(eventRatingStatsStreamProvider(event.eventId))
-                            .when(
-                              data: (stats) => Row(
-                                children: [
-                                  const Icon(
-                                    Icons.star_rounded,
-                                    color: AppColors.warning,
-                                    size: 32,
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        stats.average.toStringAsFixed(1),
-                                        style: Theme.of(context)
-                                            .textTheme
-                                            .headlineSmall
-                                            ?.copyWith(
-                                              fontWeight: FontWeight.w800,
-                                            ),
-                                      ),
-                                      Text(
-                                        '${stats.count} reviews',
-                                        style: Theme.of(
-                                          context,
-                                        ).textTheme.bodySmall,
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              ),
-                              loading: () => const CircularProgressIndicator(),
-                              error: (_, __) => const Text('No ratings'),
+                        Row(
+                          children: [
+                            const Icon(
+                              Icons.star_rounded,
+                              color: AppColors.warning,
+                              size: 32,
                             ),
+                            const SizedBox(width: 8),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  (ratingStats?.average ?? 0.0).toStringAsFixed(1),
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .headlineSmall
+                                      ?.copyWith(
+                                        fontWeight: FontWeight.w800,
+                                      ),
+                                ),
+                                Text(
+                                  '${ratingStats?.count ?? 0} reviews',
+                                  style: Theme.of(
+                                    context,
+                                  ).textTheme.bodySmall,
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
                       ],
                     ),
                   ),
@@ -414,45 +437,41 @@ class EventDetailsScreen extends ConsumerWidget {
                   ),
                   const SizedBox(height: 12),
                   if (!isCreator)
-                    isRegisteredAsync.when(
-                      data: (isRegistered) => SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton.icon(
-                          onPressed: canInteract
-                              ? () => _toggleRegistration(
-                                    context,
-                                    ref,
-                                    event,
-                                    user,
-                                    isRegistered,
-                                  )
-                              : null,
-                          icon: Icon(
-                            isRegistered
-                                ? Icons.event_busy_outlined
-                                : Icons.event_available_outlined,
-                          ),
-                          style: isRegistered
-                              ? ElevatedButton.styleFrom(
-                                  backgroundColor: Theme.of(
-                                    context,
-                                  ).colorScheme.surfaceContainerHighest,
-                                  foregroundColor: Theme.of(
-                                    context,
-                                  ).colorScheme.onSurface,
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        onPressed: canInteract
+                            ? () => _toggleRegistration(
+                                  context,
+                                  ref,
+                                  event,
+                                  user,
+                                  isRegistered,
                                 )
-                              : null,
-                          label: Text(
-                            isRegistered ? 'Unregister' : 'Register for Event',
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
-                            ),
+                            : null,
+                        icon: Icon(
+                          isRegistered
+                              ? Icons.event_busy_outlined
+                              : Icons.event_available_outlined,
+                        ),
+                        style: isRegistered
+                            ? ElevatedButton.styleFrom(
+                                backgroundColor: Theme.of(
+                                  context,
+                                ).colorScheme.surfaceContainerHighest,
+                                foregroundColor: Theme.of(
+                                  context,
+                                ).colorScheme.onSurface,
+                              )
+                            : null,
+                        label: Text(
+                          isRegistered ? 'Unregister' : 'Register for Event',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
                           ),
                         ),
                       ),
-                      loading: () => const CircularProgressIndicator(),
-                      error: (_, __) => const Text('Error'),
                     ),
                   if (isCreator)
                     SizedBox(
@@ -461,7 +480,7 @@ class EventDetailsScreen extends ConsumerWidget {
                         onPressed: () =>
                             context.push('/events/${event.eventId}/participants'),
                         icon: const Icon(Icons.people_outline),
-                        label: const Text('Manage Participants'),
+                        label: const Text('See Participants'),
                         style: OutlinedButton.styleFrom(
                           padding: const EdgeInsets.symmetric(vertical: 16),
                           shape: RoundedRectangleBorder(
@@ -705,6 +724,27 @@ class _EventOverviewSection extends StatelessWidget {
                 color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
             ),
+            if (event.status == EventStatus.rejected) ...[
+              const SizedBox(height: 14),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: AppColors.danger.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: AppColors.danger.withValues(alpha: 0.3),
+                  ),
+                ),
+                child: Text(
+                  'Rejection reason: ${_rejectionReasonText(event.rejectedReason)}',
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: AppColors.danger,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
             const Divider(height: 30),
             DetailRow(
               icon: Icons.calendar_month_outlined,
@@ -745,6 +785,11 @@ class _EventOverviewSection extends StatelessWidget {
       'December',
     ];
     return '${months[date.month - 1]} ${date.day}, ${date.year} at ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
+  }
+
+  String _rejectionReasonText(String? value) {
+    final reason = value?.trim() ?? '';
+    return reason.isEmpty ? 'No reason provided by admin.' : reason;
   }
 }
 
@@ -815,6 +860,8 @@ class _CommentSection extends ConsumerStatefulWidget {
 class _CommentSectionState extends ConsumerState<_CommentSection> {
   final _commentController = TextEditingController();
   final _commentFormKey = GlobalKey<FormState>();
+  AutovalidateMode _commentAutovalidateMode = AutovalidateMode.disabled;
+  bool _isSubmittingComment = false;
 
   @override
   void dispose() {
@@ -824,10 +871,40 @@ class _CommentSectionState extends ConsumerState<_CommentSection> {
 
   @override
   Widget build(BuildContext context) {
-    final commentsAsync = ref.watch(eventCommentsStreamProvider(widget.eventId));
     final user = ref.watch(currentUserProvider).value;
-    final canComment =
-        user != null && widget.event.status == EventStatus.approved;
+    if (user == null) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Comments',
+            style: Theme.of(
+              context,
+            ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 16),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Theme.of(context)
+                  .colorScheme
+                  .surfaceContainerHighest
+                  .withValues(alpha: 0.5),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: const Text('Sign in to view and post comments.'),
+          ),
+        ],
+      );
+    }
+
+    final commentsAsync = ref.watch(eventCommentsStreamProvider(widget.eventId));
+    final commentsCount = commentsAsync.maybeWhen(
+      data: (comments) => comments.length,
+      orElse: () => 0,
+    );
+    final canComment = widget.event.status == EventStatus.approved;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -841,26 +918,22 @@ class _CommentSectionState extends ConsumerState<_CommentSection> {
               ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
             ),
             const SizedBox(width: 8),
-            commentsAsync.when(
-              data: (comments) => Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                decoration: BoxDecoration(
-                  color: Theme.of(
-                    context,
-                  ).colorScheme.secondary.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Text(
-                  comments.length.toString(),
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                    color: Theme.of(context).colorScheme.secondary,
-                  ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              decoration: BoxDecoration(
+                color: Theme.of(
+                  context,
+                ).colorScheme.secondary.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text(
+                commentsCount.toString(),
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: Theme.of(context).colorScheme.secondary,
                 ),
               ),
-              loading: () => const SizedBox(),
-              error: (_, __) => const SizedBox(),
             ),
           ],
         ),
@@ -873,7 +946,13 @@ class _CommentSectionState extends ConsumerState<_CommentSection> {
                   final commenterPhotoUrl = (user.photoUrl ?? '').trim();
                   final ImageProvider<Object>? commenterImageProvider =
                       commenterPhotoUrl.isNotEmpty
-                      ? NetworkImage(commenterPhotoUrl)
+                      ? buildOptimizedNetworkImageProvider(
+                          commenterPhotoUrl,
+                          cacheWidth: 96,
+                          cacheHeight: 96,
+                          cacheKey: user.photoUpdatedAt?.millisecondsSinceEpoch
+                              .toString(),
+                        )
                       : null;
                   return CircleAvatar(
                     radius: 18,
@@ -895,7 +974,7 @@ class _CommentSectionState extends ConsumerState<_CommentSection> {
                     controller: _commentController,
                     enabled: canComment,
                     maxLength: AppValidators.commentMax,
-                    autovalidateMode: AutovalidateMode.onUserInteraction,
+                    autovalidateMode: _commentAutovalidateMode,
                     validator: AppValidators.validateComment,
                     decoration: InputDecoration(
                       hintText: 'Add a comment...',
@@ -919,9 +998,29 @@ class _CommentSectionState extends ConsumerState<_CommentSection> {
               const SizedBox(width: 8),
               IconButton.filled(
                 icon: const Icon(Icons.send),
-                onPressed: canComment
+                onPressed: canComment && !_isSubmittingComment
                     ? () async {
-                        if (!_commentFormKey.currentState!.validate()) return;
+                        if (!_commentFormKey.currentState!.validate()) {
+                          if (mounted) {
+                            setState(() {
+                              _commentAutovalidateMode =
+                                  AutovalidateMode.onUserInteraction;
+                            });
+                          }
+                          return;
+                        }
+
+                        final textToSend = _commentController.text.trim();
+                        if (mounted) {
+                          setState(() {
+                            _isSubmittingComment = true;
+                            _commentController.value = TextEditingValue.empty;
+                            _commentFormKey.currentState?.reset();
+                            _commentAutovalidateMode =
+                                AutovalidateMode.disabled;
+                          });
+                        }
+                        FocusScope.of(context).unfocus();
 
                         try {
                           await ref
@@ -933,13 +1032,27 @@ class _CommentSectionState extends ConsumerState<_CommentSection> {
                                   userId: user.uid,
                                   userName: user.name,
                                   userPhotoUrl: user.photoUrl,
-                                  text: _commentController.text.trim(),
+                                  userPhotoUpdatedAt: user.photoUpdatedAt,
+                                  text: textToSend,
                                   createdAt: DateTime.now(),
                                 ),
                               );
-                          _commentController.clear();
+                          if (mounted) {
+                            setState(() {
+                              _isSubmittingComment = false;
+                            });
+                          }
                         } catch (e) {
                           if (context.mounted) {
+                            setState(() {
+                              _isSubmittingComment = false;
+                              _commentController.text = textToSend;
+                              _commentController.selection = TextSelection.collapsed(
+                                offset: _commentController.text.length,
+                              );
+                              _commentAutovalidateMode =
+                                  AutovalidateMode.onUserInteraction;
+                            });
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(content: Text('Comment failed: $e')),
                             );
@@ -968,24 +1081,44 @@ class _CommentSectionState extends ConsumerState<_CommentSection> {
               );
             }
 
-            final user = ref.watch(currentUserProvider).value;
             return ListView.builder(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
               itemCount: comments.length,
               itemBuilder: (context, index) {
                 final comment = comments[index];
-                final isOwner = user?.uid == comment.userId;
+                final isOwner = user.uid == comment.userId;
+                final commenterAsync = ref.watch(
+                  commenterUserProvider(comment.userId),
+                );
+                final commenter = commenterAsync.maybeWhen(
+                  data: (value) => value,
+                  orElse: () => null,
+                );
+                final displayName = commenter?.name ?? comment.userName;
 
                 return Card(
                   margin: const EdgeInsets.only(bottom: 10),
                   child: ListTile(
                     leading: Builder(
                       builder: (context) {
-                        final commentPhotoUrl = (comment.userPhotoUrl ?? '').trim();
+                        final commentPhotoUrl =
+                            (commenter?.photoUrl ?? comment.userPhotoUrl ?? '')
+                                .trim();
                         final ImageProvider<Object>? commentImageProvider =
                             commentPhotoUrl.isNotEmpty
-                            ? NetworkImage(commentPhotoUrl)
+                            ? buildOptimizedNetworkImageProvider(
+                                commentPhotoUrl,
+                                cacheWidth: 104,
+                                cacheHeight: 104,
+                                cacheKey: commenter?.photoUpdatedAt != null
+                                    ? commenter!.photoUpdatedAt!
+                                          .millisecondsSinceEpoch
+                                          .toString()
+                                    : comment.userPhotoUpdatedAt
+                                          ?.millisecondsSinceEpoch
+                                          .toString(),
+                              )
                             : null;
 
                         return CircleAvatar(
@@ -999,7 +1132,7 @@ class _CommentSectionState extends ConsumerState<_CommentSection> {
                         );
                       },
                     ),
-                    title: Text(comment.userName),
+                    title: Text(displayName),
                     subtitle: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -1023,7 +1156,7 @@ class _CommentSectionState extends ConsumerState<_CommentSection> {
                               comment,
                             ),
                           ),
-                        if (user?.role == UserRole.admin || isOwner)
+                        if (user.role == UserRole.admin || isOwner)
                           IconButton(
                             icon: const Icon(
                               Icons.delete_outline,
@@ -1172,6 +1305,8 @@ class _WeatherDisplay extends ConsumerWidget {
                 'https://openweathermap.org/img/wn/$icon@2x.png',
                 width: 50,
                 height: 50,
+                cacheWidth: 100,
+                cacheHeight: 100,
                 errorBuilder: (_, __, ___) => const Icon(
                   Icons.cloud_outlined,
                   size: 36,

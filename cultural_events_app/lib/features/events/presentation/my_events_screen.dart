@@ -133,6 +133,9 @@ class _MyEventCard extends StatelessWidget {
                     width: 64,
                     height: 64,
                     fit: BoxFit.cover,
+                    cacheWidth: 192,
+                    cacheHeight: 192,
+                    filterQuality: FilterQuality.low,
                     errorBuilder: (_, __, ___) => Container(
                       width: 64,
                       height: 64,

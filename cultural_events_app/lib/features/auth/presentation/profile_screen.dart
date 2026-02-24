@@ -1,10 +1,12 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/painting.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/providers/current_user_provider.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/validation/app_validators.dart';
+import '../../../core/widgets/network_image_utils.dart';
 import '../data/auth_repository.dart';
 import '../data/user_repository.dart';
 
@@ -19,6 +21,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   final _editFormKey = GlobalKey<FormState>();
   bool _isEditing = false;
   bool _networkImageFailed = false;
+  int _profilePhotoRefreshTick = 0;
+  String? _pendingName;
+  String? _pendingPhotoUrl;
   late TextEditingController _nameController;
   late TextEditingController _photoUrlController;
 
@@ -38,9 +43,34 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
   void _setupControllers(dynamic user) {
     if (user != null && !_isEditing) {
-      _nameController.text = user.name;
-      _photoUrlController.text = user.photoUrl ?? '';
+      final resolvedName = _pendingName ?? user.name;
+      final resolvedPhotoUrl = _pendingPhotoUrl ?? (user.photoUrl ?? '');
+      _nameController.text = resolvedName;
+      _photoUrlController.text = resolvedPhotoUrl;
       _networkImageFailed = false;
+
+      if (_pendingName != null && _pendingName == user.name) {
+        _pendingName = null;
+      }
+      if (_pendingPhotoUrl != null &&
+          _pendingPhotoUrl == (user.photoUrl ?? '')) {
+        _pendingPhotoUrl = null;
+      }
+    }
+  }
+
+  void _scheduleImageErrorState() {
+    if (!mounted || _networkImageFailed) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _networkImageFailed) return;
+      setState(() => _networkImageFailed = true);
+    });
+  }
+
+  Future<void> _evictImageFromCache(String? rawUrl) async {
+    final imageProvider = buildOptimizedNetworkImageProvider(rawUrl);
+    if (imageProvider != null) {
+      await PaintingBinding.instance.imageCache.evict(imageProvider);
     }
   }
 
@@ -90,6 +120,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   Future<void> _saveProfile(String uid) async {
     if (!_editFormKey.currentState!.validate()) return;
 
+    final previousUser = ref.read(currentUserProvider).value;
+    final previousPhotoUrl = previousUser?.photoUrl?.trim();
+    final name = _nameController.text.trim();
     final photoUrl = _photoUrlController.text.trim();
     if (photoUrl.isNotEmpty) {
       final imageValidationError = await _validateImageAccessibility(photoUrl);
@@ -103,25 +136,40 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       }
     }
 
-    await ref
-        .read(userRepositoryProvider)
-        .updateUserProfile(
-          uid,
-          name: _nameController.text.trim(),
-          photoUrl: photoUrl,
+    try {
+      setState(() {
+        _isEditing = false;
+        _networkImageFailed = false;
+        _pendingName = name;
+        _pendingPhotoUrl = photoUrl;
+        _profilePhotoRefreshTick++;
+      });
+
+      await ref
+          .read(userRepositoryProvider)
+          .updateUserProfile(
+            uid,
+            name: name,
+            photoUrl: photoUrl,
+          );
+
+      await _evictImageFromCache(previousPhotoUrl);
+      await _evictImageFromCache(photoUrl);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Profile updated successfully')),
         );
-    setState(() {
-      _isEditing = false;
-      _photoUrlController.text = photoUrl;
-    });
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Profile updated successfully',
-          ),
-        ),
-      );
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isEditing = true;
+        });
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to update profile: $e')));
+      }
     }
   }
 
@@ -138,12 +186,21 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             return const Center(child: Text('User not found.'));
           }
           _setupControllers(user);
-          final networkUrl = _photoUrlController.text.trim().isNotEmpty
-              ? _photoUrlController.text.trim()
-              : user.photoUrl;
+          final effectivePhotoUrl =
+              _photoUrlController.text.trim().isNotEmpty
+                  ? _photoUrlController.text.trim()
+                  : user.photoUrl;
+          final cacheKey = user.photoUpdatedAt != null
+              ? '${user.photoUpdatedAt!.millisecondsSinceEpoch}_$_profilePhotoRefreshTick'
+              : _profilePhotoRefreshTick.toString();
           final ImageProvider<Object>? networkImageProvider =
-              !_networkImageFailed && _isValidImageUrl(networkUrl)
-              ? NetworkImage(networkUrl!)
+              !_networkImageFailed && _isValidImageUrl(effectivePhotoUrl)
+              ? buildOptimizedNetworkImageProvider(
+                  effectivePhotoUrl,
+                  cacheWidth: 192,
+                  cacheHeight: 192,
+                  cacheKey: cacheKey,
+                )
               : null;
           final ImageProvider<Object>? imageProvider = networkImageProvider;
 
@@ -162,11 +219,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                           backgroundImage: imageProvider,
                           onBackgroundImageError: imageProvider == null
                               ? null
-                              : (_, __) {
-                                  if (mounted) {
-                                    setState(() => _networkImageFailed = true);
-                                  }
-                                },
+                              : (_, __) => _scheduleImageErrorState(),
                           child: imageProvider == null
                               ? const Icon(Icons.person, size: 48)
                               : null,

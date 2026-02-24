@@ -22,16 +22,19 @@ class Registration {
   });
 
   factory Registration.fromJson(Map<String, dynamic> json, String userId) {
+    final registeredAtRaw = json['registeredAt'];
+    final registeredAt = registeredAtRaw is Timestamp
+        ? registeredAtRaw.toDate()
+        : DateTime.fromMillisecondsSinceEpoch(0);
+    final eventTimeRaw = json['eventTime'];
     return Registration(
       eventId: json['eventId'] as String? ?? '',
-      userId: userId,
+      userId: json['userId'] as String? ?? userId,
       userName: json['userName'] as String? ?? 'Unknown User',
       userPhotoUrl: json['userPhotoUrl'] as String?,
-      registeredAt: (json['registeredAt'] as Timestamp).toDate(),
+      registeredAt: registeredAt,
       eventTitle: json['eventTitle'] as String?,
-      eventTime: json['eventTime'] != null
-          ? (json['eventTime'] as Timestamp).toDate()
-          : null,
+      eventTime: eventTimeRaw is Timestamp ? eventTimeRaw.toDate() : null,
       locationName: json['locationName'] as String?,
     );
   }

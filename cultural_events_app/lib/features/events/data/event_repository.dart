@@ -237,20 +237,28 @@ class EventRepository {
         .collectionGroup('registrations')
         .where('userId', isEqualTo: userId)
         .snapshots()
-        .map(
-          (snapshot) => snapshot.docs.map((doc) {
+        .map((snapshot) {
+          final registrations = <Registration>[];
+          for (final doc in snapshot.docs) {
             final data = doc.data();
             final pathSegments = doc.reference.path.split('/');
             final eventIdFromPath = pathSegments.length >= 2
                 ? pathSegments[1]
                 : '';
 
-            return Registration.fromJson({
-              ...data,
-              if (data['eventId'] == null) 'eventId': eventIdFromPath,
-            }, userId);
-          }).toList(),
-        );
+            try {
+              final parsed = Registration.fromJson({
+                ...data,
+                if (data['eventId'] == null) 'eventId': eventIdFromPath,
+              }, userId);
+              registrations.add(parsed);
+            } catch (_) {
+              // Skip malformed records to avoid keeping the stream in a bad state.
+            }
+          }
+          registrations.sort((a, b) => b.registeredAt.compareTo(a.registeredAt));
+          return registrations;
+        });
   }
 
 

@@ -216,6 +216,8 @@ class _EventCard extends ConsumerWidget {
                         height: 160,
                         width: double.infinity,
                         fit: BoxFit.cover,
+                        filterQuality: FilterQuality.low,
+                        cacheWidth: 1200,
                         errorBuilder: (_, __, ___) => Container(
                           height: 160,
                           width: double.infinity,

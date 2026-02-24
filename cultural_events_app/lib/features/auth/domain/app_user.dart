@@ -6,6 +6,7 @@ class AppUser {
   final String name;
   final String email;
   final String? photoUrl;
+  final DateTime? photoUpdatedAt;
   final UserRole role;
   final DateTime createdAt;
 
@@ -14,6 +15,7 @@ class AppUser {
     required this.name,
     required this.email,
     this.photoUrl,
+    this.photoUpdatedAt,
     required this.role,
     required this.createdAt,
   });
@@ -24,6 +26,9 @@ class AppUser {
       name: json['name'] as String,
       email: json['email'] as String,
       photoUrl: json['photoUrl'] as String?,
+      photoUpdatedAt: json['photoUpdatedAt'] is Timestamp
+          ? (json['photoUpdatedAt'] as Timestamp).toDate()
+          : null,
       role: UserRole.values.firstWhere(
         (r) => r.name == json['role'],
         orElse: () => UserRole.user,
@@ -37,6 +42,9 @@ class AppUser {
       'name': name,
       'email': email,
       'photoUrl': photoUrl,
+      'photoUpdatedAt': photoUpdatedAt != null
+          ? Timestamp.fromDate(photoUpdatedAt!)
+          : null,
       'role': role.name,
       'createdAt': Timestamp.fromDate(createdAt),
     };
@@ -46,6 +54,7 @@ class AppUser {
     String? name,
     String? email,
     String? photoUrl,
+    DateTime? photoUpdatedAt,
     UserRole? role,
   }) {
     return AppUser(
@@ -53,6 +62,7 @@ class AppUser {
       name: name ?? this.name,
       email: email ?? this.email,
       photoUrl: photoUrl ?? this.photoUrl,
+      photoUpdatedAt: photoUpdatedAt ?? this.photoUpdatedAt,
       role: role ?? this.role,
       createdAt: createdAt,
     );
